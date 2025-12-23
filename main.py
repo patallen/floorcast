@@ -3,15 +3,16 @@ import asyncio
 import structlog
 from websockets import connect
 
+from floorcast.config import Config
 from floorcast.db import connect_db, init_db
-from floorcast.enrichment import EventEnricher
+from floorcast.ha_protocol import HomeAssistantProtocol
 from floorcast.logging import configure_logging
-from floorcast.protocol import HomeAssistantProtocol
-from floorcast.repository import EventRepository, SnapshotRepository
-from floorcast.services.snapshot_service import SnapshotService
-from settings import Settings
+from floorcast.repositories.event import EventRepository
+from floorcast.repositories.snapshot import SnapshotRepository
+from floorcast.services.enrichment import EnrichmentService
+from floorcast.services.snapshot import SnapshotService
 
-config = Settings()  # type: ignore[call-arg]
+config = Config()  # type: ignore[call-arg]
 configure_logging(config.log_level, config.log_to_console)
 logger = structlog.get_logger(__name__)
 
@@ -23,7 +24,7 @@ async def main() -> None:
 
         event_repo = EventRepository(db_conn)
         snapshot_repo = SnapshotRepository(db_conn)
-        event_enricher = EventEnricher()
+        event_enricher = EnrichmentService()
         snapshot_service = SnapshotService(
             snapshot_repo, event_repo, config.snapshot_interval_seconds
         )

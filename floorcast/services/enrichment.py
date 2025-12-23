@@ -1,10 +1,10 @@
 import uuid
 
+from floorcast.ha_protocol import HAEvent
 from floorcast.models import Event
-from floorcast.protocol import HAEvent
 
 
-class EventEnricher:
+class EnrichmentService:
     async def enrich(self, ha_event: HAEvent) -> Event:
         data = ha_event.data
         entity_id = data["entity_id"]
