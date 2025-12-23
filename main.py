@@ -5,17 +5,15 @@ from websockets import connect
 
 from floorcast.db import connect_db, init_db
 from floorcast.enrichment import EventEnricher
+from floorcast.logging import configure_logging
 from floorcast.protocol import HomeAssistantProtocol
-from floorcast.repository import EventRepository
+from floorcast.repository import EventRepository, SnapshotRepository
+from floorcast.snapshot_service import SnapshotService
 from settings import Settings
 
+config = Settings()  # type: ignore[call-arg]
+configure_logging(config.log_level, config.log_to_console)
 logger = structlog.get_logger(__name__)
-
-config = Settings()
-
-
-def ha_ws_url(ha_url: str) -> str:
-    return f"ws://{ha_url}/api/websocket"
 
 
 async def main():
@@ -23,14 +21,22 @@ async def main():
         logger.info("connected to floorcast db", db_uri=config.db_uri)
         await init_db(db_conn)
 
-        state_cache = {}
         event_repo = EventRepository(db_conn)
+        snapshot_repo = SnapshotRepository(db_conn)
         event_enricher = EventEnricher()
+        snapshot_service = SnapshotService(
+            snapshot_repo, event_repo, config.snapshot_interval_seconds
+        )
 
-        async with connect(ha_ws_url(config.ha_url)) as ws:
-            logger.info("connected to HA websocket", ha_url=config.ha_url)
+        await snapshot_service.initialize()
+        logger.info("snapshot service initialized")
 
-            async with HomeAssistantProtocol(ws, config.ha_ws_token) as ha_protocol:
+        async with connect(config.ha_websocket_url) as ws:
+            logger.info("connected to HA websocket", ha_url=config.ha_websocket_url)
+
+            async with HomeAssistantProtocol(
+                ws, config.ha_websocket_token
+            ) as ha_protocol:
                 await ha_protocol.subscribe("state_changed")
                 logger.info("subscribed to HA events", event_types=["state_changed"])
 
@@ -44,7 +50,13 @@ async def main():
                         serial=event.id,
                         event_type=event.event_type,
                     )
-                    state_cache[event.entity_id] = event.state
+                    snapshot_service.update_state(event.entity_id, event.state)
+                    if snapshot := await snapshot_service.maybe_snapshot(event.id):
+                        logger.info(
+                            "snapshot taken",
+                            snapshot_id=snapshot.id,
+                            last_event_id=snapshot.last_event_id,
+                        )
 
 
 if __name__ == "__main__":

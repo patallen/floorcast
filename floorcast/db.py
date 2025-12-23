@@ -7,6 +7,7 @@ import aiosqlite
 @asynccontextmanager
 async def connect_db(db_path: str) -> AsyncGenerator[aiosqlite.Connection]:
     conn = await aiosqlite.connect(db_path)
+    conn.row_factory = aiosqlite.Row
     try:
         yield conn
     finally:
@@ -16,7 +17,6 @@ async def connect_db(db_path: str) -> AsyncGenerator[aiosqlite.Connection]:
 async def init_db(conn: aiosqlite.Connection) -> None:
     await conn.executescript(
         """
-        DROP TABLE IF EXISTS events; 
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             state TEXT,
@@ -36,10 +36,12 @@ async def init_db(conn: aiosqlite.Connection) -> None:
 
         CREATE TABLE IF NOT EXISTS snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp DATETIME NOT NULL,
-            state JSON NOT NULL
+            last_event_id INTEGER NOT NULL REFERENCES events(id),
+            state JSON NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE INDEX IF NOT EXISTS ix_snapshots_timestamp ON snapshots(timestamp);
+        CREATE INDEX IF NOT EXISTS ix_snapshots_created_at ON snapshots(created_at);
+        CREATE INDEX IF NOT EXISTS ix_snapshots_last_event_id ON snapshots(created_at);
         """
     )

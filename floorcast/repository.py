@@ -1,9 +1,10 @@
 import json
+from datetime import datetime
 
 from aiosqlite import Connection
 from structlog import get_logger
 
-from floorcast.models import Event
+from floorcast.models import Event, Snapshot
 
 logger = get_logger(__name__)
 
@@ -47,3 +48,49 @@ class EventRepository:
         if row is None:
             return None
         return Event.from_dict(dict(row))
+
+    async def get_between_id_and_timestamp(
+        self, id: int, timestamp: datetime
+    ) -> list[Event]:
+        rows = await self.conn.execute_fetchall(
+            "SELECT * FROM events WHERE id > ? AND timestamp < ?",
+            (id, timestamp.isoformat()),
+        )
+        return [Event.from_dict(dict(row)) for row in rows]
+
+
+class SnapshotRepository:
+    def __init__(self, conn: Connection):
+        self.conn = conn
+
+    async def create(self, snapshot: Snapshot) -> Snapshot:
+        row = await self.conn.execute_insert(
+            "INSERT INTO snapshots (last_event_id, state) VALUES (?, ?)",
+            (
+                snapshot.last_event_id,
+                json.dumps(snapshot.state),
+            ),
+        )
+        (snapshot.id,) = row
+        await self.conn.commit()
+        updated = await self.get_by_id(snapshot.id)
+        snapshot.created_at = updated.created_at
+        return snapshot
+
+    async def get_by_id(self, snapshot_id: int) -> Snapshot | None:
+        cursor = await self.conn.execute(
+            "SELECT * FROM snapshots WHERE id = ?", (snapshot_id,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        return Snapshot.from_dict(dict(row))
+
+    async def get_latest(self) -> Snapshot | None:
+        cursor = await self.conn.execute(
+            "SELECT * FROM snapshots ORDER BY id DESC LIMIT 1"
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        return Snapshot.from_dict(dict(row))

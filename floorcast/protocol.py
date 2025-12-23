@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import count
 from typing import Any
 
@@ -62,7 +62,9 @@ class HomeAssistantProtocol:
             return HAEvent(
                 id=data["id"],
                 event_type=event["event_type"],
-                time_fired=datetime.fromisoformat(event["time_fired"]),
+                time_fired=datetime.fromisoformat(event["time_fired"]).replace(
+                    tzinfo=timezone.utc
+                ),
                 data=event["data"],
                 context=event["context"],
             )

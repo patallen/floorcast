@@ -1,8 +1,12 @@
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
+
+
+def _parse_datetime(value: str) -> datetime:
+    return datetime.fromisoformat(value).replace(tzinfo=timezone.utc)
 
 
 @dataclass(kw_only=True)
@@ -26,7 +30,24 @@ class Event:
             event_type=data["event_type"],
             external_id=data["external_id"],
             state=data["state"],
-            timestamp=datetime.fromisoformat(data["timestamp"]),
+            timestamp=_parse_datetime(data["timestamp"]),
             data=json.loads(data["data"]),
             metadata=json.loads(data.get("metadata")),
+        )
+
+
+@dataclass(kw_only=True)
+class Snapshot:
+    id: int | None = None
+    last_event_id: int
+    state: dict[str, str | None]
+    created_at: datetime | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Snapshot":
+        return cls(
+            id=int(data["id"]),
+            last_event_id=int(data["last_event_id"]),
+            state=json.loads(data["state"]),
+            created_at=_parse_datetime(data["created_at"]),
         )
