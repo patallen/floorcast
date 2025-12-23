@@ -15,7 +15,7 @@ class SnapshotStore(Protocol):
 
 class EventStore(Protocol):
     async def get_between_id_and_timestamp(
-        self, id: int, timestamp: datetime
+        self, event_id: int, timestamp: datetime
     ) -> list[Event]: ...
 
 

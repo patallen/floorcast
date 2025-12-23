@@ -8,7 +8,7 @@ from floorcast.enrichment import EventEnricher
 from floorcast.logging import configure_logging
 from floorcast.protocol import HomeAssistantProtocol
 from floorcast.repository import EventRepository, SnapshotRepository
-from floorcast.snapshot_service import SnapshotService
+from floorcast.services.snapshot_service import SnapshotService
 from settings import Settings
 
 config = Settings()  # type: ignore[call-arg]
