@@ -1,7 +1,4 @@
 import json
-import uuid
-from datetime import datetime
-from typing import Any
 
 from aiosqlite import Connection
 from structlog import get_logger
@@ -11,39 +8,23 @@ from floorcast.models import Event
 logger = get_logger(__name__)
 
 
-def map_event(message: dict[str, Any]) -> Event:
-    event = message["event"]
-    event_type = event["event_type"]
-    data = event["data"]
-    entity_id = data["entity_id"]
-    new_state = data["new_state"]
-    state = new_state["state"]
-    external_id = event["context"]["id"]
-    timestamp = datetime.fromisoformat(event["time_fired"])
-
-    return Event(
-        id=None,
-        external_id=external_id,
-        entity_id=entity_id,
-        event_id=uuid.uuid4(),
-        state=state,
-        event_type=event_type,
-        timestamp=timestamp,
-        data=new_state,
-    )
-
-
 class EventRepository:
     def __init__(self, conn: Connection):
         self.conn = conn
 
-    async def create(self, data: dict[str, Any]) -> Event:
-        event = map_event(data)
+    async def create(self, event: Event) -> Event:
         row = await self.conn.execute_insert(
             """
             INSERT INTO events (
-                event_id, event_type, external_id, entity_id, timestamp, state, data
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                event_id,
+                event_type,
+                external_id,
+                entity_id,
+                timestamp,
+                state,
+                data,
+                metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 str(event.event_id),
@@ -53,6 +34,7 @@ class EventRepository:
                 event.timestamp,
                 event.state,
                 json.dumps(event.data),
+                json.dumps(event.metadata or {}),
             ),
         )
         (event.id,) = row
@@ -67,5 +49,7 @@ class EventRepository:
 
     async def get_by_serial(self, serial: int) -> Event | None:
         cursor = await self.conn.execute("SELECT * FROM events WHERE id = ?", (serial,))
-        row = cursor.fetchone()
-        return Event(**row) if row else None
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        return Event.from_dict(dict(row))

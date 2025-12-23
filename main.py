@@ -1,10 +1,12 @@
 import asyncio
 
 import structlog
+from websockets import connect
 
 from floorcast.db import connect_db, init_db
+from floorcast.enrichment import EventEnricher
+from floorcast.protocol import HomeAssistantProtocol
 from floorcast.repository import EventRepository
-from floorcast.websocket import HomeAssistantAuth, HomeAssistantWebsocket
 from settings import Settings
 
 logger = structlog.get_logger(__name__)
@@ -17,19 +19,24 @@ def ha_ws_url(ha_url: str) -> str:
 
 
 async def main():
-    conn = await connect_db(config.db_uri)
-    await init_db(conn)
+    async with connect_db(config.db_uri) as db_conn:
+        await init_db(db_conn)
 
-    state_cache = {}
-    auth = HomeAssistantAuth(config.ha_ws_token)
-    event_repo = EventRepository(conn)
-    async with HomeAssistantWebsocket(ha_ws_url(config.ha_url), auth) as ws:
-        async for message in ws:
-            if message["type"] != "event":
-                continue
-            event = await event_repo.create(message)
-            state_cache[event.entity_id] = event.state
+        state_cache = {}
+        event_repo = EventRepository(db_conn)
+        event_enricher = EventEnricher()
+
+        async with connect(ha_ws_url(config.ha_url)) as ws:
+            async with HomeAssistantProtocol(ws, config.ha_ws_token) as ha_protocol:
+                await ha_protocol.subscribe("state_changed")
+                async for ha_event in ha_protocol:
+                    event = await event_enricher.enrich(ha_event)
+                    event = await event_repo.create(event)
+                    state_cache[event.entity_id] = event.state
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

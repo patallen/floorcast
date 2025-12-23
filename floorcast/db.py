@@ -1,8 +1,16 @@
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 import aiosqlite
 
 
-async def connect_db(db_path: str) -> aiosqlite.Connection:
-    return await aiosqlite.connect(db_path)
+@asynccontextmanager
+async def connect_db(db_path: str) -> AsyncGenerator[aiosqlite.Connection]:
+    conn = await aiosqlite.connect(db_path)
+    try:
+        yield conn
+    finally:
+        await conn.close()
 
 
 async def init_db(conn: aiosqlite.Connection) -> None:
@@ -11,14 +19,14 @@ async def init_db(conn: aiosqlite.Connection) -> None:
         DROP TABLE IF EXISTS events; 
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            state JSON NOT NULL,
+            state TEXT,
             external_id TEXT UNIQUE NOT NULL,
             event_id TEXT UNIQUE NOT NULL,
             event_type TEXT NOT NULL,
             entity_id TEXT,
             timestamp DATETIME NOT NULL,
             data JSON NOT NULL,
-            metadata JSON,
+            metadata JSON NOT NULL DEFAULT '{}',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 

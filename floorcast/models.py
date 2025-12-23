@@ -1,3 +1,4 @@
+import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -11,10 +12,10 @@ class Event:
     event_id: uuid.UUID
     event_type: str
     external_id: str
-    state: str
+    state: str | None
     timestamp: datetime
     data: dict[str, Any]
-    metadata: dict[str, Any] | None = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Event":
@@ -26,6 +27,6 @@ class Event:
             external_id=data["external_id"],
             state=data["state"],
             timestamp=datetime.fromisoformat(data["timestamp"]),
-            data=data["data"],
-            metadata=data.get("metadata"),
+            data=json.loads(data["data"]),
+            metadata=json.loads(data.get("metadata")),
         )
