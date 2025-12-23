@@ -38,7 +38,9 @@ class EventRepository:
                 json.dumps(event.metadata or {}),
             ),
         )
-        (event.id,) = row
+        if not row:
+            raise ValueError("Failed to create event")
+        event.id = row[0]
         await self.conn.commit()
         return event
 
@@ -71,19 +73,21 @@ class SnapshotRepository:
                 json.dumps(snapshot.state),
             ),
         )
+        if not row:
+            raise ValueError("Failed to create snapshot")
         (snapshot.id,) = row
         await self.conn.commit()
         updated = await self.get_by_id(snapshot.id)
         snapshot.created_at = updated.created_at
         return snapshot
 
-    async def get_by_id(self, snapshot_id: int) -> Snapshot | None:
+    async def get_by_id(self, snapshot_id: int) -> Snapshot:
         cursor = await self.conn.execute(
             "SELECT * FROM snapshots WHERE id = ?", (snapshot_id,)
         )
         row = await cursor.fetchone()
         if not row:
-            return None
+            raise ValueError(f"Snapshot with id {snapshot_id} not found")
         return Snapshot.from_dict(dict(row))
 
     async def get_latest(self) -> Snapshot | None:

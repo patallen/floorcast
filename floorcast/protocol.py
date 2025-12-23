@@ -23,7 +23,7 @@ class HAEvent:
 class HAResult:
     id: int
     success: bool
-    result: dict | None = None
+    result: dict[str, Any] | None = None
 
 
 class HomeAssistantProtocol:
@@ -71,24 +71,26 @@ class HomeAssistantProtocol:
 
         raise ValueError(f"Unknown message type: {data['type']}")
 
-    def __aiter__(self):
+    def __aiter__(self) -> "HomeAssistantProtocol":
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> HAEvent:
         while True:
             message = await self._receive()
-            if isinstance(message, HAResult):
+            if not isinstance(message, HAEvent):
                 logger.warning(
                     "HAResult received while iterating HomeAssistantProtocol",
                     result=message,
                 )
                 continue
-            if isinstance(message, HAEvent):
-                return message
+            return message
+        raise StopAsyncIteration
 
     async def __aenter__(self) -> "HomeAssistantProtocol":
         _ = await self._websocket.recv()
         await self.authenticate()
         return self
 
-    async def __aexit__(self, _exc_type, _exc, _tb) -> None: ...
+    async def __aexit__(
+        self, exc_type: type[BaseException], exc_value: BaseException, traceback: Any
+    ) -> bool | None: ...

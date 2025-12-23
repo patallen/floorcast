@@ -16,7 +16,7 @@ configure_logging(config.log_level, config.log_to_console)
 logger = structlog.get_logger(__name__)
 
 
-async def main():
+async def main() -> None:
     async with connect_db(config.db_uri) as db_conn:
         logger.info("connected to floorcast db", db_uri=config.db_uri)
         await init_db(db_conn)

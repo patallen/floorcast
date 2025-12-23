@@ -13,7 +13,6 @@ class EventEnricher:
         external_id = ha_event.context["id"]
 
         return Event(
-            id=None,
             external_id=external_id,
             entity_id=entity_id,
             event_id=uuid.uuid4(),

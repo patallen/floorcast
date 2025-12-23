@@ -5,7 +5,7 @@ from structlog.dev import ConsoleRenderer
 from structlog.processors import JSONRenderer
 
 
-def configure_logging(log_level: str = "INFO", log_to_console: bool = False):
+def configure_logging(log_level: str = "INFO", log_to_console: bool = False) -> None:
     shared_processors = [
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.add_log_level,
@@ -16,7 +16,7 @@ def configure_logging(log_level: str = "INFO", log_to_console: bool = False):
 
     renderer = ConsoleRenderer() if log_to_console else JSONRenderer()
     structlog.configure(
-        processors=shared_processors + [renderer],
+        processors=shared_processors + [renderer],  # type: ignore[arg-type]
         wrapper_class=structlog.make_filtering_bound_logger(
             getattr(logging, log_level.upper())
         ),

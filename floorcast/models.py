@@ -2,7 +2,7 @@ import json
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 
 def _parse_datetime(value: str) -> datetime:
@@ -11,7 +11,7 @@ def _parse_datetime(value: str) -> datetime:
 
 @dataclass(kw_only=True)
 class Event:
-    id: int | None = None
+    id: int = -1
     entity_id: str
     event_id: uuid.UUID
     event_type: str
@@ -32,13 +32,13 @@ class Event:
             state=data["state"],
             timestamp=_parse_datetime(data["timestamp"]),
             data=json.loads(data["data"]),
-            metadata=json.loads(data.get("metadata")),
+            metadata=json.loads(cast(str, data.get("metadata"))),
         )
 
 
 @dataclass(kw_only=True)
 class Snapshot:
-    id: int | None = None
+    id: int = -1
     last_event_id: int
     state: dict[str, str | None]
     created_at: datetime | None = None
