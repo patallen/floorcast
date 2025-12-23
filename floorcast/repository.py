@@ -33,18 +33,12 @@ class EventRepository:
                 event.entity_id,
                 event.timestamp,
                 event.state,
-                json.dumps(event.data),
+                json.dumps(event.data or {}),
                 json.dumps(event.metadata or {}),
             ),
         )
         (event.id,) = row
         await self.conn.commit()
-        logger.info(
-            "successfully inserted event",
-            serial=event.id,
-            external_id=event.external_id,
-            event_type=event.event_type,
-        )
         return event
 
     async def get_by_serial(self, serial: int) -> Event | None:

@@ -8,8 +8,8 @@ class EventEnricher:
     async def enrich(self, ha_event: HAEvent) -> Event:
         data = ha_event.data
         entity_id = data["entity_id"]
-        new_state = data["new_state"]
-        state = new_state["state"] if new_state else None
+        new_state = data.get("new_state") or {}
+        state = new_state.get("state")
         external_id = ha_event.context["id"]
 
         return Event(

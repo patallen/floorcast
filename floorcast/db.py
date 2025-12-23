@@ -25,7 +25,7 @@ async def init_db(conn: aiosqlite.Connection) -> None:
             event_type TEXT NOT NULL,
             entity_id TEXT,
             timestamp DATETIME NOT NULL,
-            data JSON NOT NULL,
+            data JSON NOT NULL DEFAULT '{}',
             metadata JSON NOT NULL DEFAULT '{}',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
