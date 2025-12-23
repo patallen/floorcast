@@ -1,0 +1,14 @@
+CLAUDE.md
+__pycache__/
+.venv/
+.idea/
+.ruff_cache/
+.pytest_cache/
+*.pyc
+*.egg-info/
+dist/
+build/
+.coverage
+.env
+*.db
+*.sqlite3
