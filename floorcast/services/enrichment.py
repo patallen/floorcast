@@ -1,6 +1,6 @@
 import uuid
 
-from floorcast.ha_protocol import HAEvent
+from floorcast.adapters.home_assistant import HAEvent
 from floorcast.models import Event
 
 

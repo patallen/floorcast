@@ -28,7 +28,7 @@ class HAResult:
     result: dict[str, Any] | None = None
 
 
-class HomeAssistantProtocol:
+class HomeAssistantClient:
     def __init__(self, websocket: ClientConnection, auth_token: str):
         self._websocket = websocket
         self._auth_token = auth_token
@@ -63,7 +63,7 @@ class HomeAssistantProtocol:
 
         raise ValueError(f"Unknown message type: {data['type']}")
 
-    def __aiter__(self) -> "HomeAssistantProtocol":
+    def __aiter__(self) -> "HomeAssistantClient":
         return self
 
     async def __anext__(self) -> HAEvent:
@@ -71,13 +71,13 @@ class HomeAssistantProtocol:
             message = await self._receive()
             if not isinstance(message, HAEvent):
                 logger.warning(
-                    "HAResult received while iterating HomeAssistantProtocol",
+                    f"HAResult received while iterating {self.__class__.__name__}",
                     result=message,
                 )
                 continue
             return message
 
-    async def __aenter__(self) -> "HomeAssistantProtocol":
+    async def __aenter__(self) -> "HomeAssistantClient":
         _ = await self._websocket.recv()
         await self.authenticate()
         return self

@@ -11,10 +11,10 @@ class HasEntityId(Protocol):
 
 class EntityBlockList:
     def __init__(self, blockers: list[str]) -> None:
-        self._blocklist = blockers
+        self._blockers = blockers
 
     def should_block(self, event: HasEntityId) -> bool:
-        return any([fnmatch(event.entity_id, blocked) for blocked in self._blocklist])
+        return any(fnmatch(event.entity_id, blocked) for blocked in self._blockers)
 
 
 class FilteredEventStream(AsyncIterator[T]):

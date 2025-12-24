@@ -5,11 +5,11 @@ import uvicorn
 from fastapi import FastAPI
 from websockets import connect
 
+from floorcast.adapters.home_assistant import HAEvent, HomeAssistantClient
 from floorcast.api.factories import create_app
 from floorcast.config import Config
 from floorcast.db import connect_db, init_db
 from floorcast.filtering import EntityBlockList, FilteredEventStream
-from floorcast.ha_protocol import HAEvent, HomeAssistantProtocol
 from floorcast.logging import configure_logging
 from floorcast.models import Subscriber
 from floorcast.repositories.event import EventRepository
@@ -36,7 +36,7 @@ async def run_ingestion(
     async with connect(config.ha_websocket_url) as ws:
         logger.info("connected to HA websocket", ha_url=config.ha_websocket_url)
 
-        async with HomeAssistantProtocol(ws, config.ha_websocket_token) as ha_protocol:
+        async with HomeAssistantClient(ws, config.ha_websocket_token) as ha_protocol:
             await ha_protocol.subscribe("state_changed")
             logger.info("subscribed to HA events", event_types=["state_changed"])
 
