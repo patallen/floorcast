@@ -4,11 +4,12 @@ import structlog
 from aiosqlite import Connection
 
 from floorcast.domain.models import Snapshot
+from floorcast.domain.ports import SnapshotStore
 
 logger = structlog.get_logger(__name__)
 
 
-class SnapshotRepository:
+class SnapshotRepository(SnapshotStore):
     def __init__(self, conn: Connection):
         self.conn = conn
 

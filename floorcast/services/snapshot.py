@@ -1,23 +1,15 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import structlog
 
-from floorcast.domain.models import Event, Snapshot
+from floorcast.domain.models import Snapshot
+
+if TYPE_CHECKING:
+    from floorcast.domain.ports import EventStore, SnapshotStore
 
 logger = structlog.get_logger(__name__)
-
-
-class SnapshotStore(Protocol):
-    async def create(self, snapshot: Snapshot) -> Snapshot: ...
-    async def get_latest(self) -> Snapshot | None: ...
-
-
-class EventStore(Protocol):
-    async def get_between_id_and_timestamp(
-        self, event_id: int, timestamp: datetime
-    ) -> list[Event]: ...
 
 
 @dataclass(kw_only=True, frozen=True)

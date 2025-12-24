@@ -5,11 +5,12 @@ import structlog
 from aiosqlite import Connection
 
 from floorcast.domain.models import Event
+from floorcast.domain.ports import EventStore
 
 logger = structlog.get_logger(__name__)
 
 
-class EventRepository:
+class EventRepository(EventStore):
     def __init__(self, conn: Connection):
         self.conn = conn
 

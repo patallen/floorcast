@@ -9,7 +9,7 @@ from floorcast.domain.filtering import FilteredEventStream, HasEntityId
 if TYPE_CHECKING:
     from floorcast.domain.filtering import EntityBlockList
     from floorcast.domain.models import Event, Subscriber
-    from floorcast.repositories.event import EventRepository
+    from floorcast.domain.ports import EventStore
     from floorcast.services.snapshot import SnapshotService
 
 logger = structlog.get_logger(__name__)
@@ -17,7 +17,7 @@ logger = structlog.get_logger(__name__)
 
 async def run_ingestion[T: HasEntityId](
     subscribers: set[Subscriber],
-    event_repo: EventRepository,
+    event_repo: EventStore,
     snapshot_service: SnapshotService,
     block_list: EntityBlockList,
     event_source: AbstractAsyncContextManager[AsyncIterator[T]],

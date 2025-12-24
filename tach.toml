@@ -1,103 +1,49 @@
-interfaces = []
 exclude = [
     "**/*__pycache__",
     "**/*egg-info",
     "**/docs",
     "**/tests",
     "**/venv",
+    "**/scripts",
 ]
-source_roots = [
-    ".",
-]
+source_roots = ["."]
 
-[[modules ]]
+[[modules]]
 path = "floorcast.domain"
 depends_on = []
 
-[[modules ]]
-path = "floorcast.api"
-depends_on = []
-
-[[modules ]]
+[[modules]]
 path = "floorcast.infrastructure"
 depends_on = []
 
-[[modules ]]
+[[modules]]
 path = "floorcast.adapters"
-depends_on = []
+depends_on = ["floorcast.domain"]
 
-[[modules ]]
-path = "main"
-depends_on = [ "floorcast.ingest", "floorcast.repositories.event", "floorcast.api.factories", "floorcast.repositories.snapshot", "floorcast.services.snapshot", "floorcast.infrastructure.config", "floorcast.adapters.home_assistant", "floorcast.domain.filtering", "floorcast.infrastructure.db", "floorcast.infrastructure.logging"]
-
-[[modules ]]
-path = "floorcast.ingest"
-depends_on = [ "floorcast.domain.filtering"]
-
-[[modules ]]
+[[modules]]
 path = "floorcast.services"
-depends_on = []
+depends_on = ["floorcast.domain"]
 
-[[modules ]]
+[[modules]]
 path = "floorcast.repositories"
-depends_on = []
+depends_on = ["floorcast.domain"]
 
-[[modules ]]
-path = "floorcast.repositories.event"
-depends_on = ["floorcast.domain.models"]
+[[modules]]
+path = "floorcast.api"
+depends_on = ["floorcast.domain", "floorcast.services"]
 
-[[modules ]]
-path = "floorcast.api.subscriber"
-depends_on = []
+[[modules]]
+path = "floorcast.ingest"
+depends_on = ["floorcast.domain"]
 
-[[modules ]]
-path = "floorcast.domain.models"
-depends_on = []
-
-[[modules ]]
-path = "floorcast.api.dependencies"
-depends_on = []
-
-[[modules ]]
-path = "floorcast.api.factories"
-depends_on = ["floorcast.api.routes", "floorcast.api.state"]
-
-[[modules ]]
-path = "floorcast.repositories.snapshot"
-depends_on = ["floorcast.domain.models"]
-
-[[modules ]]
-path = "floorcast.api.state"
-depends_on = ["floorcast.domain.models"]
-
-[[modules ]]
-path = "floorcast.infrastructure.db"
-depends_on = []
-
-[[modules ]]
-path = "floorcast.infrastructure.config"
-depends_on = []
-
-[[modules ]]
-path = "floorcast.infrastructure.logging"
-depends_on = []
-
-[[modules ]]
-path = "floorcast.api.routes"
-depends_on = ["floorcast.api.dependencies", "floorcast.api.subscriber", "floorcast.domain.models", "floorcast.services.snapshot"]
-
-[[modules ]]
-path = "floorcast.services.snapshot"
-depends_on = ["floorcast.domain.models"]
-
-[[modules ]]
-path = "floorcast.adapters.home_assistant"
-depends_on = ["floorcast.domain.models"]
-
-[[modules ]]
-path = "floorcast.domain.filtering"
-depends_on = []
-
-[[modules ]]
-path = "floorcast"
-depends_on = []
+[[modules]]
+path = "main"
+depends_on = [
+    "floorcast.adapters",
+    "floorcast.api",
+    "floorcast.domain",
+    "floorcast.infrastructure",
+    "floorcast.ingest",
+    "floorcast.repositories",
+    "floorcast.services",
+]

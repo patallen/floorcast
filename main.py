@@ -44,7 +44,7 @@ async def main() -> None:
             snapshot_repo, event_repo, config.snapshot_interval_seconds
         )
 
-        app = create_app(subscribers, event_repo, snapshot_service)
+        app = create_app(subscribers, snapshot_service)
 
         block_list = EntityBlockList(config.entity_blocklist)
         event_source = connect_home_assistant(
