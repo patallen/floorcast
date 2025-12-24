@@ -76,7 +76,6 @@ class HomeAssistantProtocol:
                 )
                 continue
             return message
-        raise StopAsyncIteration
 
     async def __aenter__(self) -> "HomeAssistantProtocol":
         _ = await self._websocket.recv()

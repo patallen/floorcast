@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 import structlog
 
@@ -32,8 +32,13 @@ class SnapshotService:
         self.state_cache: dict[str, str | None] = {}
         self.last_snapshot_time = datetime.now(timezone.utc)
 
+    def _set_cache_state(self, state: dict[str, Any] | None) -> None:
+        self.state_cache = state or {}
+
     async def initialize(self) -> None:
         latest = await self.snapshot_repo.get_latest()
+        self._set_cache_state(latest.state if latest else None)
+
         last_event_id = latest.last_event_id if latest else None
         latest_created_at = latest.created_at if latest else None
         self.last_snapshot_time = latest_created_at or datetime.now(timezone.utc)
