@@ -2,8 +2,6 @@ import asyncio
 from typing import TYPE_CHECKING
 
 import structlog
-import uvicorn
-from fastapi import FastAPI
 
 from floorcast.adapters.home_assistant import connect_home_assistant, map_ha_event
 from floorcast.api.factories import create_app
@@ -14,6 +12,7 @@ from floorcast.infrastructure.logging import configure_logging
 from floorcast.ingest import run_ingestion
 from floorcast.repositories.event import EventRepository
 from floorcast.repositories.snapshot import SnapshotRepository
+from floorcast.server import run_websocket_server
 from floorcast.services.snapshot import SnapshotService
 
 if TYPE_CHECKING:
@@ -22,14 +21,6 @@ if TYPE_CHECKING:
 config = Config()  # type: ignore[call-arg]
 configure_logging(config.log_level, config.log_to_console)
 logger = structlog.get_logger(__name__)
-
-
-async def run_websocket_server(app: FastAPI) -> None:
-    server_config = uvicorn.Config(
-        app, host="0.0.0.0", port=8000, log_level="warning", access_log=False
-    )
-    server = uvicorn.Server(server_config)
-    await server.serve()
 
 
 async def main() -> None:

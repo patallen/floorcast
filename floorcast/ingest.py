@@ -21,7 +21,7 @@ async def run_ingestion[T: HasEntityId](
     snapshot_service: SnapshotService,
     block_list: EntityBlockList,
     event_source: AbstractAsyncContextManager[AsyncIterator[T]],
-    event_mapper: Callable[[T], Awaitable[Event]],
+    event_mapper: Callable[..., Awaitable[Event]],
 ) -> None:
     await snapshot_service.initialize()
     logger.info("snapshot service initialized")
