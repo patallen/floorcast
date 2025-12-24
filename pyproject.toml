@@ -19,6 +19,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "ruff>=0.14.10",
+    "tach>=0.32.2",
 ]
 
 [tool.mypy]
