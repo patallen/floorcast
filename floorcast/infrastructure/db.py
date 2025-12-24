@@ -46,6 +46,6 @@ async def init_db(conn: aiosqlite.Connection) -> None:
         CREATE INDEX IF NOT EXISTS ix_snapshots_created_at ON snapshots(created_at);
         CREATE INDEX IF NOT EXISTS ix_snapshots_last_event_id
             ON snapshots(last_event_id);
-        
+
         """
     )
