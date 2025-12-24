@@ -5,6 +5,7 @@ from websockets import connect
 
 from floorcast.config import Config
 from floorcast.db import connect_db, init_db
+from floorcast.filtering import EntityIDGlobFilter, EventPipeline
 from floorcast.ha_protocol import HomeAssistantProtocol
 from floorcast.logging import configure_logging
 from floorcast.repositories.event import EventRepository
@@ -18,6 +19,7 @@ logger = structlog.get_logger(__name__)
 
 
 async def main() -> None:
+    entity_filters = EntityIDGlobFilter(config.entity_blocklist)
     async with connect_db(config.db_uri) as db_conn:
         logger.info("connected to floorcast db", db_uri=config.db_uri)
         await init_db(db_conn)
@@ -41,7 +43,8 @@ async def main() -> None:
                 await ha_protocol.subscribe("state_changed")
                 logger.info("subscribed to HA events", event_types=["state_changed"])
 
-                async for ha_event in ha_protocol:
+                event_pipeline = EventPipeline([entity_filters], ha_protocol)
+                async for ha_event in event_pipeline:
                     event = await event_enricher.enrich(ha_event)
                     event = await event_repo.create(event)
                     logger.info(

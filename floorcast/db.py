@@ -20,6 +20,7 @@ async def init_db(conn: aiosqlite.Connection) -> None:
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             state TEXT,
+            domain TEXT NOT NULL,
             external_id TEXT UNIQUE NOT NULL,
             event_id TEXT UNIQUE NOT NULL,
             event_type TEXT NOT NULL,
@@ -30,8 +31,9 @@ async def init_db(conn: aiosqlite.Connection) -> None:
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE INDEX IF NOT EXISTS ix_events_timestamp ON events(timestamp);
+        CREATE INDEX IF NOT EXISTS ix_events_domain ON events(domain);
         CREATE INDEX IF NOT EXISTS ix_events_entity_id ON events(entity_id);
+        CREATE INDEX IF NOT EXISTS ix_events_timestamp ON events(timestamp);
         CREATE INDEX IF NOT EXISTS ix_events_type ON events(event_type);
 
         CREATE TABLE IF NOT EXISTS snapshots (

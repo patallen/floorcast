@@ -9,5 +9,6 @@ class Config(BaseSettings):
     ha_websocket_url: str = "ws://homeassistant.local:8123/api/websocket"
     db_uri: str = "floorcast.db"
 
+    entity_blocklist: list[str] = ["update.*"]
     log_level: str = "INFO"
     log_to_console: bool = False

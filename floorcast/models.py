@@ -12,6 +12,7 @@ def _parse_datetime(value: str) -> datetime:
 @dataclass(kw_only=True)
 class Event:
     id: int = -1
+    domain: str
     entity_id: str
     event_id: uuid.UUID
     event_type: str
@@ -26,6 +27,7 @@ class Event:
         return cls(
             id=int(data["id"]),
             entity_id=data["entity_id"],
+            domain=data["domain"],
             event_id=uuid.UUID(data["event_id"]),
             event_type=data["event_type"],
             external_id=data["external_id"],

@@ -14,6 +14,8 @@ logger = get_logger(__name__)
 class HAEvent:
     id: int
     event_type: str
+    domain: str
+    entity_id: str
     time_fired: datetime
     data: dict[str, Any]
     context: dict[str, Any]
@@ -53,21 +55,11 @@ class HomeAssistantProtocol:
     async def _receive(self) -> HAEvent | HAResult:
         result = await self._websocket.recv()
         data = json.loads(result)
-        if data["type"] == "result":
-            return HAResult(
-                id=data["id"], success=data["success"], result=data.get("result")
-            )
-        if data["type"] == "event":
-            event = data["event"]
-            return HAEvent(
-                id=data["id"],
-                event_type=event["event_type"],
-                time_fired=datetime.fromisoformat(event["time_fired"]).replace(
-                    tzinfo=timezone.utc
-                ),
-                data=event["data"],
-                context=event["context"],
-            )
+        message_type = data["type"]
+        if message_type == "result":
+            return _create_ha_result(data)
+        if message_type == "event":
+            return _create_ha_event(data)
 
         raise ValueError(f"Unknown message type: {data['type']}")
 
@@ -94,3 +86,23 @@ class HomeAssistantProtocol:
     async def __aexit__(
         self, exc_type: type[BaseException], exc_value: BaseException, traceback: Any
     ) -> bool | None: ...
+
+
+def _create_ha_event(data: dict[str, Any]) -> HAEvent:
+    event = data["event"]
+    entity_id = event["data"]["entity_id"]
+    return HAEvent(
+        id=data["id"],
+        event_type=event["event_type"],
+        domain=entity_id.split(".")[0],
+        entity_id=entity_id,
+        time_fired=datetime.fromisoformat(event["time_fired"]).replace(
+            tzinfo=timezone.utc
+        ),
+        data=event["data"],
+        context=event["context"],
+    )
+
+
+def _create_ha_result(data: dict[str, Any]) -> HAResult:
+    return HAResult(id=data["id"], success=data["success"], result=data.get("result"))

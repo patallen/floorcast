@@ -20,12 +20,13 @@ class EventRepository:
                 event_id,
                 event_type,
                 external_id,
+                domain,
                 entity_id,
                 timestamp,
                 state,
                 data,
                 metadata
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (external_id) DO NOTHING
             """,
             (
@@ -33,6 +34,7 @@ class EventRepository:
                 event.event_type,
                 event.external_id,
                 event.entity_id,
+                event.domain,
                 event.timestamp,
                 event.state,
                 json.dumps(event.data or {}),
