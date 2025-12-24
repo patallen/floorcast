@@ -1,14 +1,5 @@
-from collections.abc import Awaitable, Callable
 from fnmatch import fnmatch
-from typing import TYPE_CHECKING, AsyncIterator, Protocol, TypeVar
-
-if TYPE_CHECKING:
-    from floorcast.domain.models import Event
-
-T = TypeVar("T", bound="HasEntityId")
-RawEvent = TypeVar("RawEvent")
-
-EventMapper = Callable[[RawEvent], Awaitable["Event"]]
+from typing import AsyncIterator, Protocol
 
 
 class HasEntityId(Protocol):
@@ -24,7 +15,7 @@ class EntityBlockList:
         return any(fnmatch(event.entity_id, blocked) for blocked in self._blockers)
 
 
-class FilteredEventStream(AsyncIterator[T]):
+class FilteredEventStream[T: HasEntityId](AsyncIterator[T]):
     def __init__(self, source: AsyncIterator[T], block_list: EntityBlockList) -> None:
         self._block_list = block_list
         self._source = source

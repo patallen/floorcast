@@ -1,13 +1,14 @@
+from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from typing import TYPE_CHECKING, AsyncIterator
 
 import structlog
 
-from floorcast.domain.filtering import EventMapper, FilteredEventStream, HasEntityId
+from floorcast.domain.filtering import FilteredEventStream, HasEntityId
 
 if TYPE_CHECKING:
     from floorcast.domain.filtering import EntityBlockList
-    from floorcast.domain.models import Subscriber
+    from floorcast.domain.models import Event, Subscriber
     from floorcast.repositories.event import EventRepository
     from floorcast.services.snapshot import SnapshotService
 
@@ -20,7 +21,7 @@ async def run_ingestion[T: HasEntityId](
     snapshot_service: SnapshotService,
     block_list: EntityBlockList,
     event_source: AbstractAsyncContextManager[AsyncIterator[T]],
-    event_mapper: EventMapper[T],
+    event_mapper: Callable[[T], Awaitable[Event]],
 ) -> None:
     await snapshot_service.initialize()
     logger.info("snapshot service initialized")
