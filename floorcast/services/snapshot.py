@@ -4,7 +4,7 @@ from typing import Any, Protocol, cast
 
 import structlog
 
-from floorcast.models import Event, Snapshot
+from floorcast.domain.models import Event, Snapshot
 
 logger = structlog.get_logger(__name__)
 

@@ -1,8 +1,11 @@
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from floorcast.models import Subscriber
-from floorcast.repositories.event import EventRepository
-from floorcast.services.snapshot import SnapshotService
+from floorcast.domain.models import Subscriber
+
+if TYPE_CHECKING:
+    from floorcast.repositories.event import EventRepository
+    from floorcast.services.snapshot import SnapshotService
 
 
 @dataclass(kw_only=True, frozen=True)

@@ -1,11 +1,16 @@
 import json
+import uuid
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import count
-from typing import Any
+from typing import Any, AsyncIterator
 
 import structlog
+from websockets import connect
 from websockets.asyncio.client import ClientConnection
+
+from floorcast.domain.models import Event
 
 logger = structlog.get_logger(__name__)
 
@@ -105,3 +110,32 @@ def _create_ha_event(data: dict[str, Any]) -> HAEvent:
 
 def _create_ha_result(data: dict[str, Any]) -> HAResult:
     return HAResult(id=data["id"], success=data["success"], result=data.get("result"))
+
+
+async def map_ha_event(ha_event: HAEvent) -> Event:
+    data = ha_event.data
+    new_state = data.get("new_state") or {}
+    state = new_state.get("state")
+    external_id = ha_event.context["id"]
+
+    return Event(
+        external_id=external_id,
+        entity_id=ha_event.entity_id,
+        domain=ha_event.domain,
+        event_id=uuid.uuid4(),
+        state=state,
+        event_type=ha_event.event_type,
+        timestamp=ha_event.time_fired,
+        data=new_state,
+    )
+
+
+@asynccontextmanager
+async def connect_home_assistant(
+    url: str, token: str
+) -> AsyncIterator[HomeAssistantClient]:
+    async with connect(url) as ws:
+        async with HomeAssistantClient(ws, token) as client:
+            await client.subscribe("state_changed")
+            logger.info("connected to home assistant", url=url)
+            yield client

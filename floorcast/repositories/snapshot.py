@@ -3,7 +3,7 @@ import json
 import structlog
 from aiosqlite import Connection
 
-from floorcast.models import Snapshot
+from floorcast.domain.models import Snapshot
 
 logger = structlog.get_logger(__name__)
 

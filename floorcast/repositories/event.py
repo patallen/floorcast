@@ -4,7 +4,7 @@ from datetime import datetime
 import structlog
 from aiosqlite import Connection
 
-from floorcast.models import Event
+from floorcast.domain.models import Event
 
 logger = structlog.get_logger(__name__)
 

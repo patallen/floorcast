@@ -1,7 +1,14 @@
+from collections.abc import Awaitable, Callable
 from fnmatch import fnmatch
-from typing import AsyncIterator, Protocol, TypeVar
+from typing import TYPE_CHECKING, AsyncIterator, Protocol, TypeVar
+
+if TYPE_CHECKING:
+    from floorcast.domain.models import Event
 
 T = TypeVar("T", bound="HasEntityId")
+RawEvent = TypeVar("RawEvent")
+
+EventMapper = Callable[[RawEvent], Awaitable["Event"]]
 
 
 class HasEntityId(Protocol):

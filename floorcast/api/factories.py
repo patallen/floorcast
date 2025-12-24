@@ -1,10 +1,14 @@
+from typing import TYPE_CHECKING
+
 from fastapi import FastAPI
 
 from floorcast.api.routes import ws_router
 from floorcast.api.state import AppState
-from floorcast.models import Subscriber
-from floorcast.repositories.event import EventRepository
-from floorcast.services.snapshot import SnapshotService
+
+if TYPE_CHECKING:
+    from floorcast.domain.models import Subscriber
+    from floorcast.repositories.event import EventRepository
+    from floorcast.services.snapshot import SnapshotService
 
 
 def create_app(

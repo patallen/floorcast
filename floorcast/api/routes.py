@@ -1,11 +1,15 @@
+from typing import TYPE_CHECKING
+
 import structlog
 from fastapi import APIRouter, Depends
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
-from floorcast.adapters.subscriber import SubscriberChannel
 from floorcast.api.dependencies import get_snapshot_service
-from floorcast.models import Subscriber
-from floorcast.services.snapshot import SnapshotService
+from floorcast.api.subscriber import SubscriberChannel
+from floorcast.domain.models import Subscriber
+
+if TYPE_CHECKING:
+    from floorcast.services.snapshot import SnapshotService
 
 logger = structlog.get_logger(__name__)
 

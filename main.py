@@ -1,67 +1,27 @@
 import asyncio
+from typing import TYPE_CHECKING
 
 import structlog
 import uvicorn
 from fastapi import FastAPI
-from websockets import connect
 
-from floorcast.adapters.home_assistant import HAEvent, HomeAssistantClient
+from floorcast.adapters.home_assistant import connect_home_assistant, map_ha_event
 from floorcast.api.factories import create_app
-from floorcast.config import Config
-from floorcast.db import connect_db, init_db
-from floorcast.filtering import EntityBlockList, FilteredEventStream
-from floorcast.logging import configure_logging
-from floorcast.models import Subscriber
+from floorcast.domain.filtering import EntityBlockList
+from floorcast.infrastructure.config import Config
+from floorcast.infrastructure.db import connect_db, init_db
+from floorcast.infrastructure.logging import configure_logging
+from floorcast.ingest import run_ingestion
 from floorcast.repositories.event import EventRepository
 from floorcast.repositories.snapshot import SnapshotRepository
-from floorcast.services.enrichment import EnrichmentService
 from floorcast.services.snapshot import SnapshotService
+
+if TYPE_CHECKING:
+    from floorcast.domain.models import Subscriber
 
 config = Config()  # type: ignore[call-arg]
 configure_logging(config.log_level, config.log_to_console)
 logger = structlog.get_logger(__name__)
-
-
-async def run_ingestion(
-    subscribers: set[Subscriber],
-    event_repo: EventRepository,
-    snapshot_service: SnapshotService,
-) -> None:
-    block_list = EntityBlockList(config.entity_blocklist)
-    event_enricher = EnrichmentService()
-
-    await snapshot_service.initialize()
-    logger.info("snapshot service initialized")
-
-    async with connect(config.ha_websocket_url) as ws:
-        logger.info("connected to HA websocket", ha_url=config.ha_websocket_url)
-
-        async with HomeAssistantClient(ws, config.ha_websocket_token) as ha_protocol:
-            await ha_protocol.subscribe("state_changed")
-            logger.info("subscribed to HA events", event_types=["state_changed"])
-
-            event_pipeline = FilteredEventStream[HAEvent](
-                source=ha_protocol, block_list=block_list
-            )
-            async for ha_event in event_pipeline:
-                event = await event_enricher.enrich(ha_event)
-                event = await event_repo.create(event)
-                logger.info(
-                    "event persisted",
-                    event_id=str(event.event_id),
-                    entity_id=event.entity_id,
-                    serial=event.id,
-                    event_type=event.event_type,
-                )
-                snapshot_service.update_state(event.entity_id, event.state)
-                for subscriber in subscribers:
-                    subscriber.queue.put_nowait(event)
-                if snapshot := await snapshot_service.maybe_snapshot(event.id):
-                    logger.info(
-                        "snapshot taken",
-                        snapshot_id=snapshot.id,
-                        last_event_id=snapshot.last_event_id,
-                    )
 
 
 async def run_websocket_server(app: FastAPI) -> None:
@@ -86,7 +46,20 @@ async def main() -> None:
 
         app = create_app(subscribers, event_repo, snapshot_service)
 
-        ingest_coroutine = run_ingestion(subscribers, event_repo, snapshot_service)
+        block_list = EntityBlockList(config.entity_blocklist)
+        event_source = connect_home_assistant(
+            config.ha_websocket_url, config.ha_websocket_token
+        )
+        event_mapper = map_ha_event
+
+        ingest_coroutine = run_ingestion(
+            subscribers,
+            event_repo,
+            snapshot_service,
+            block_list,
+            event_source,
+            event_mapper,
+        )
         websocket_coroutine = run_websocket_server(app)
         await asyncio.gather(ingest_coroutine, websocket_coroutine)
 
