@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from dataclasses import dataclass, field
@@ -53,3 +54,9 @@ class Snapshot:
             state=json.loads(data["state"]),
             created_at=_parse_datetime(data["created_at"]),
         )
+
+
+@dataclass(kw_only=True, frozen=True)
+class Subscriber:
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    queue: asyncio.Queue["Event"] = field(default_factory=asyncio.Queue)

@@ -4,10 +4,10 @@ from datetime import datetime, timezone
 from itertools import count
 from typing import Any
 
-from structlog import get_logger
+import structlog
 from websockets.asyncio.client import ClientConnection
 
-logger = get_logger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @dataclass(kw_only=True, frozen=True)

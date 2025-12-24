@@ -1,19 +1,20 @@
 from fastapi import FastAPI
 
 from floorcast.api.routes import ws_router
-from floorcast.api.state import AppState, Client
+from floorcast.api.state import AppState
+from floorcast.models import Subscriber
 from floorcast.repositories.event import EventRepository
 from floorcast.services.snapshot import SnapshotService
 
 
 def create_app(
-    clients: set[Client], event_repo: EventRepository, snapshot_service: SnapshotService
+    subscribers: set[Subscriber],
+    event_repo: EventRepository,
+    snapshot_service: SnapshotService,
 ) -> FastAPI:
-    app = FastAPI(
-        name="floorcast",
-    )
+    app = FastAPI(name="floorcast")
     app.state = AppState(
-        clients=clients,
+        subscribers=subscribers,
         event_repo=event_repo,
         snapshot_service=snapshot_service,
     )
