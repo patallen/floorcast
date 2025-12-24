@@ -14,3 +14,11 @@ repos:
           - pydantic-settings
           - structlog
           - websockets
+  - repo: local
+    hooks:
+    - id: tach
+      name: tach
+      entry: "tach check"
+      language: system
+      pass_filenames: false
+      always_run: true
