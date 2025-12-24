@@ -34,7 +34,7 @@ class Event:
             state=data["state"],
             timestamp=_parse_datetime(data["timestamp"]),
             data=json.loads(data["data"]),
-            metadata=json.loads(cast(str, data.get("metadata"))),
+            metadata=json.loads(cast(str, data.get("metadata") or "{}")),
         )
 
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from floorcast.models import Event
 from floorcast.repositories.event import EventRepository
-from floorcast.repositories.snapshot import SnapshotRepository
+from floorcast.services.snapshot import SnapshotService
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -17,4 +17,4 @@ class Client:
 class AppState:
     clients: set[Client]
     event_repo: EventRepository
-    snapshot_repo: SnapshotRepository
+    snapshot_service: SnapshotService

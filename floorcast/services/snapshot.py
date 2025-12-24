@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol, cast
 
@@ -19,6 +20,12 @@ class EventStore(Protocol):
     ) -> list[Event]: ...
 
 
+@dataclass(kw_only=True, frozen=True)
+class LatestState:
+    state: dict[str, str | None]
+    last_event_id: int | None
+
+
 class SnapshotService:
     def __init__(
         self,
@@ -32,13 +39,12 @@ class SnapshotService:
         self.state_cache: dict[str, str | None] = {}
         self.last_snapshot_time = datetime.now(timezone.utc)
 
-    def _set_cache_state(self, state: dict[str, Any] | None) -> None:
-        self.state_cache = state or {}
+    def _set_cache_state(self, state: dict[str, Any]) -> None:
+        self.state_cache = state
 
-    async def initialize(self) -> None:
+    async def get_latest_state(self) -> LatestState:
         latest = await self.snapshot_repo.get_latest()
-        self._set_cache_state(latest.state if latest else None)
-
+        state = latest.state if latest else {}
         last_event_id = latest.last_event_id if latest else None
         latest_created_at = latest.created_at if latest else None
         self.last_snapshot_time = latest_created_at or datetime.now(timezone.utc)
@@ -47,12 +53,14 @@ class SnapshotService:
             last_event_id or 0, datetime.now(timezone.utc)
         )
         for event in events:
-            self.update_state(event.entity_id, event.state)
+            state[event.entity_id] = event.state
+        return LatestState(state=state, last_event_id=last_event_id)
 
+    async def initialize(self) -> None:
+        latest_state = await self.get_latest_state()
+        self._set_cache_state(latest_state.state)
         logger.info(
-            "rehydrated snapshot state",
-            last_snapshot_id=latest.id if latest else None,
-            event_count=len(events),
+            "rehydrated snapshot state", last_event_id=latest_state.last_event_id
         )
 
     def update_state(self, entity_id: str, state: str | None) -> None:

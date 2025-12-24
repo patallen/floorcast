@@ -23,13 +23,11 @@ logger = structlog.get_logger(__name__)
 
 
 async def run_ingestion(
-    clients: set[Client], event_repo: EventRepository, snapshot_repo: SnapshotRepository
+    clients: set[Client], event_repo: EventRepository, snapshot_service: SnapshotService
 ) -> None:
     entity_filters = EntityIDGlobFilter(config.entity_blocklist)
     event_enricher = EnrichmentService()
-    snapshot_service = SnapshotService(
-        snapshot_repo, event_repo, config.snapshot_interval_seconds
-    )
+
     await snapshot_service.initialize()
     logger.info("snapshot service initialized")
 
@@ -78,10 +76,13 @@ async def main() -> None:
         clients: set[Client] = set()
         event_repo = EventRepository(db_conn)
         snapshot_repo = SnapshotRepository(db_conn)
+        snapshot_service = SnapshotService(
+            snapshot_repo, event_repo, config.snapshot_interval_seconds
+        )
 
-        app = create_app(clients, event_repo, snapshot_repo)
+        app = create_app(clients, event_repo, snapshot_service)
 
-        ingest_coroutine = run_ingestion(clients, event_repo, snapshot_repo)
+        ingest_coroutine = run_ingestion(clients, event_repo, snapshot_service)
         websocket_coroutine = run_websocket_server(app)
         await asyncio.gather(ingest_coroutine, websocket_coroutine)
 
