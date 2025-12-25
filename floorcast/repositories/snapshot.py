@@ -21,9 +21,8 @@ class SnapshotRepository(SnapshotStore):
                 json.dumps(snapshot.state),
             ),
         )
-        if not row:
-            raise ValueError("Failed to create snapshot")
-        (snapshot.id,) = row
+
+        snapshot.id = row[0]  # type: ignore[index]
         await self.conn.commit()
         updated = await self.get_by_id(snapshot.id)
         snapshot.created_at = updated.created_at

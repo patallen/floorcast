@@ -15,7 +15,7 @@ class EventRepository(EventStore):
         self.conn = conn
 
     async def create(self, event: Event) -> Event:
-        row = await self.conn.execute_insert(
+        cursor = await self.conn.execute(
             """
             INSERT INTO events (
                 event_id,
@@ -28,7 +28,8 @@ class EventRepository(EventStore):
                 data,
                 metadata
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (external_id) DO NOTHING
+            ON CONFLICT(external_id) DO UPDATE SET external_id=excluded.external_id
+            RETURNING *
             """,
             (
                 str(event.event_id),
@@ -36,15 +37,14 @@ class EventRepository(EventStore):
                 event.external_id,
                 event.domain,
                 event.entity_id,
-                event.timestamp,
+                event.timestamp.isoformat(),
                 event.state,
                 json.dumps(event.data or {}),
                 json.dumps(event.metadata or {}),
             ),
         )
-        if not row:
-            raise ValueError("Failed to create event")
-        event.id = row[0]
+        row = await cursor.fetchone()
+        event.id = row[0]  # type: ignore[index]
         await self.conn.commit()
         return event
 
