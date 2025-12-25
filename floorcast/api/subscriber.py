@@ -13,3 +13,6 @@ class SubscriberChannel:
 
     async def send_event(self, entity_id: str, state: str | None) -> None:
         await self._ws.send_json({"type": "event", "entity_id": entity_id, "state": state})
+
+    async def send_registry(self, registry: dict[str, dict[str, str | None]]) -> None:
+        await self._ws.send_json({"type": "registry", "registry": registry})

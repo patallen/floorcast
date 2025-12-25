@@ -159,3 +159,67 @@ async def test_connect_home_assistant():
         async with connect_home_assistant("http://localhost:8123", "fake-token") as client:
             assert isinstance(client, HomeAssistantClient)
             assert connect.called
+
+
+@pytest.mark.asyncio
+async def test_fetch_registry():
+    ws = FakeWebsocket(
+        [
+            json.dumps(
+                {
+                    "id": 1,
+                    "type": "result",
+                    "success": True,
+                    "result": [{"floor_id": "floor_1", "name": "First Floor", "level": 1}],
+                }
+            ),
+            json.dumps(
+                {
+                    "id": 2,
+                    "type": "result",
+                    "success": True,
+                    "result": [
+                        {
+                            "entity_id": "light.kitchen",
+                            "entity_category": None,
+                            "device_id": "dev1",
+                            "name": "Kitchen Light",
+                            "original_name": "Light",
+                            "area_id": "kitchen",
+                        }
+                    ],
+                }
+            ),
+            json.dumps(
+                {
+                    "id": 3,
+                    "type": "result",
+                    "success": True,
+                    "result": [{"area_id": "kitchen", "name": "Kitchen", "floor_id": "floor_1"}],
+                }
+            ),
+            json.dumps(
+                {
+                    "id": 4,
+                    "type": "result",
+                    "success": True,
+                    "result": [
+                        {
+                            "id": "dev1",
+                            "name": "Hue Bulb",
+                            "name_by_user": None,
+                            "area_id": "kitchen",
+                        }
+                    ],
+                }
+            ),
+        ]
+    )
+    client = HomeAssistantClient(websocket=ws, auth_token="fake-token")
+    registry = await client.fetch_registry()
+
+    assert "light.kitchen" in registry.entities
+    assert registry.entities["light.kitchen"].display_name == "Kitchen Light"
+    assert "dev1" in registry.devices
+    assert "kitchen" in registry.areas
+    assert "floor_1" in registry.floors

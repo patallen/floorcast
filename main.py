@@ -35,22 +35,26 @@ async def main() -> None:
             snapshot_repo, event_repo, config.snapshot_interval_seconds
         )
 
-        app = create_app(subscribers, snapshot_service)
-
         block_list = EntityBlockList(config.entity_blocklist)
-        event_source = connect_home_assistant(config.ha_websocket_url, config.ha_websocket_token)
         event_mapper = map_ha_event
 
-        ingest_coroutine = run_ingestion(
-            subscribers,
-            event_repo,
-            snapshot_service,
-            block_list,
-            event_source,
-            event_mapper,
-        )
-        websocket_coroutine = run_websocket_server(app)
-        await asyncio.gather(ingest_coroutine, websocket_coroutine)
+        async with connect_home_assistant(
+            config.ha_websocket_url, config.ha_websocket_token
+        ) as client:
+            registry = await client.fetch_registry()
+            app = create_app(subscribers, registry, snapshot_service)
+            await client.subscribe("state_changed")
+
+            ingest_coroutine = run_ingestion(
+                subscribers,
+                event_repo,
+                snapshot_service,
+                block_list,
+                client,
+                event_mapper,
+            )
+            websocket_coroutine = run_websocket_server(app)
+            await asyncio.gather(ingest_coroutine, websocket_coroutine)
 
 
 if __name__ == "__main__":

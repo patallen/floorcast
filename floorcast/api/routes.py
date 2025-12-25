@@ -4,7 +4,7 @@ from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from floorcast.api.dependencies import get_snapshot_service
 from floorcast.api.subscriber import SubscriberChannel
-from floorcast.domain.models import Subscriber
+from floorcast.domain.models import Registry, Subscriber
 from floorcast.services.snapshot import SnapshotService
 
 logger = structlog.get_logger(__name__)
@@ -24,12 +24,17 @@ async def events_live(
     logger.info("subscriber connected", subscriber_id=subscriber.id)
 
     try:
+        await send_registry(channel, websocket.app.state.registry)
         await stream_events(subscriber, channel, snapshot_service)
     except WebSocketDisconnect:
         pass
     finally:
         websocket.app.state.subscribers.discard(subscriber)
         logger.info("subscriber disconnected", subscriber_id=subscriber.id)
+
+
+async def send_registry(channel: SubscriberChannel, registry: Registry) -> None:
+    await channel.send_registry(registry.to_dict())
 
 
 async def stream_events(

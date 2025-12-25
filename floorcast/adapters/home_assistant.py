@@ -4,13 +4,13 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import count
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, cast
 
 import structlog
 from websockets import connect
 from websockets.asyncio.client import ClientConnection
 
-from floorcast.domain.models import Event
+from floorcast.domain.models import Area, Device, Entity, Event, Floor, Registry
 
 logger = structlog.get_logger(__name__)
 
@@ -39,33 +39,47 @@ class HomeAssistantClient:
         self._auth_token = auth_token
         self._counter = count(1)
 
+    async def fetch_registry(self) -> Registry:
+        floor_data = await self._call_wait("config/floor_registry/list")
+        entity_data = await self._call_wait("config/entity_registry/list")
+        area_data = await self._call_wait("config/area_registry/list")
+        device_data = await self._call_wait("config/device_registry/list")
+        return Registry(
+            entities={e.id: e for e in (Entity.from_dict(e) for e in entity_data)},
+            floors={f.id: f for f in (Floor.from_dict(f) for f in floor_data)},
+            areas={a.id: a for a in (Area.from_dict(a) for a in area_data)},
+            devices={d.id: d for d in (Device.from_dict(d) for d in device_data)},
+        )
+
+    async def send_json(self, data: dict[str, Any]) -> None:
+        await self._websocket.send(json.dumps(data))
+
+    async def recv_json(self) -> dict[str, Any]:
+        return cast(dict[str, Any], json.loads(await self._websocket.recv()))
+
     async def authenticate(self) -> None:
         res = json.loads(await self._websocket.recv())
         if not res["type"] == "auth_required":
             logger.info("Home Assistant authentication not required")
             return
 
-        auth_payload = json.dumps({"type": "auth", "access_token": self._auth_token})
-        await self._websocket.send(auth_payload)
+        await self.send_json({"type": "auth", "access_token": self._auth_token})
 
-        result = await self._websocket.recv()
+        result = await self.recv_json()
 
-        if not json.loads(result)["type"] == "auth_ok":
+        if not result["type"] == "auth_ok":
             raise ValueError("Failed to authenticate with Home Assistant")
 
     async def subscribe(self, event_type: str) -> int:
         next_id = next(self._counter)
-        await self._websocket.send(
-            json.dumps({"id": next_id, "type": "subscribe_events", "event_type": event_type})
-        )
+        await self.send_json({"id": next_id, "type": "subscribe_events", "event_type": event_type})
         # TODO: Do something if this fails
         #  '{"id": 1,"type": "result","success": false,"result": null}'
-        await self._websocket.recv()
+        await self.recv_json()
         return next_id
 
     async def _receive(self) -> HAEvent | HAResult:
-        result = await self._websocket.recv()
-        data = json.loads(result)
+        data = await self.recv_json()
         message_type = data["type"]
         if message_type == "result":
             return _create_ha_result(data)
@@ -73,6 +87,13 @@ class HomeAssistantClient:
             return _create_ha_event(data)
 
         raise ValueError(f"Unexpected message type: '{data['type']}'")
+
+    async def _call_wait(self, method: str) -> list[dict[str, Any]]:
+        command_id = next(self._counter)
+        await self.send_json({"id": command_id, "type": method})
+        res = await self.recv_json()
+        assert res["id"] == command_id, "Unexpected response id"
+        return cast(list[dict[str, Any]], res["result"])
 
     def __aiter__(self) -> "HomeAssistantClient":  # pragma: no cover
         return self
@@ -89,7 +110,6 @@ class HomeAssistantClient:
             return message
 
     async def __aenter__(self) -> "HomeAssistantClient":
-        _ = await self._websocket.recv()
         await self.authenticate()
         return self
 
@@ -138,6 +158,5 @@ async def map_ha_event(ha_event: HAEvent) -> Event:
 async def connect_home_assistant(url: str, token: str) -> AsyncIterator[HomeAssistantClient]:
     async with connect(url) as ws:
         async with HomeAssistantClient(ws, token) as client:
-            await client.subscribe("state_changed")
             logger.info("connected to home assistant", url=url)
             yield client
