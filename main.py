@@ -38,9 +38,7 @@ async def main() -> None:
         app = create_app(subscribers, snapshot_service)
 
         block_list = EntityBlockList(config.entity_blocklist)
-        event_source = connect_home_assistant(
-            config.ha_websocket_url, config.ha_websocket_token
-        )
+        event_source = connect_home_assistant(config.ha_websocket_url, config.ha_websocket_token)
         event_mapper = map_ha_event
 
         ingest_coroutine = run_ingestion(

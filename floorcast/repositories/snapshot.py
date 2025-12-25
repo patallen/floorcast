@@ -30,18 +30,14 @@ class SnapshotRepository(SnapshotStore):
         return snapshot
 
     async def get_by_id(self, snapshot_id: int) -> Snapshot:
-        cursor = await self.conn.execute(
-            "SELECT * FROM snapshots WHERE id = ?", (snapshot_id,)
-        )
+        cursor = await self.conn.execute("SELECT * FROM snapshots WHERE id = ?", (snapshot_id,))
         row = await cursor.fetchone()
         if not row:
             raise ValueError(f"Snapshot with id {snapshot_id} not found")
         return Snapshot.from_dict(dict(row))
 
     async def get_latest(self) -> Snapshot | None:
-        cursor = await self.conn.execute(
-            "SELECT * FROM snapshots ORDER BY id DESC LIMIT 1"
-        )
+        cursor = await self.conn.execute("SELECT * FROM snapshots ORDER BY id DESC LIMIT 1")
         row = await cursor.fetchone()
         if not row:
             return None

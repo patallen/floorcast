@@ -17,9 +17,7 @@ def configure_logging(log_level: str = "INFO", log_to_console: bool = False) -> 
     renderer = ConsoleRenderer() if log_to_console else JSONRenderer()
     structlog.configure(
         processors=shared_processors + [renderer],  # type: ignore[arg-type]
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, log_level.upper())
-        ),
+        wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, log_level.upper())),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,

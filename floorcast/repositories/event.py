@@ -55,9 +55,7 @@ class EventRepository(EventStore):
             return None
         return Event.from_dict(dict(row))
 
-    async def get_between_id_and_timestamp(
-        self, id: int, timestamp: datetime
-    ) -> list[Event]:
+    async def get_between_id_and_timestamp(self, id: int, timestamp: datetime) -> list[Event]:
         rows = await self.conn.execute_fetchall(
             "SELECT * FROM events WHERE id > ? AND timestamp < ?",
             (id, timestamp.isoformat()),

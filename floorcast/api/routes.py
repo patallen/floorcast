@@ -12,7 +12,7 @@ logger = structlog.get_logger(__name__)
 ws_router = APIRouter()
 
 
-@ws_router.websocket("/events/live")  # type: ignore[untyped-decorator]
+@ws_router.websocket("/events/live")
 async def events_live(
     websocket: WebSocket,
     snapshot_service: SnapshotService = Depends(get_snapshot_service),

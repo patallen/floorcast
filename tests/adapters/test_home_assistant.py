@@ -93,9 +93,7 @@ async def test_subscribe():
     client = HomeAssistantClient(websocket=ws, auth_token="fake-token")
     await client.subscribe("state_changed")
 
-    assert ws.sent == [
-        '{"id": 1, "type": "subscribe_events", "event_type": "state_changed"}'
-    ]
+    assert ws.sent == ['{"id": 1, "type": "subscribe_events", "event_type": "state_changed"}']
 
 
 @pytest.mark.asyncio
@@ -111,9 +109,7 @@ async def test_anext_ha_event(event_string):
 
 @pytest.mark.asyncio
 async def test_anext_skips_ha_result(event_string: str):
-    ws = FakeWebsocket(
-        [json.dumps({"id": 1, "type": "result", "success": True}), event_string]
-    )
+    ws = FakeWebsocket([json.dumps({"id": 1, "type": "result", "success": True}), event_string])
     client = HomeAssistantClient(websocket=ws, auth_token="fake-token")
     event = await client.__anext__()
 
@@ -122,9 +118,7 @@ async def test_anext_skips_ha_result(event_string: str):
 
 @pytest.mark.asyncio
 async def test_anext_raises_for_invalid_type(event_string: str):
-    ws = FakeWebsocket(
-        [json.dumps({"id": 1, "type": "bad", "success": True}), event_string]
-    )
+    ws = FakeWebsocket([json.dumps({"id": 1, "type": "bad", "success": True}), event_string])
     client = HomeAssistantClient(websocket=ws, auth_token="fake-token")
 
     with pytest.raises(ValueError, match="Unexpected message type: 'bad'"):
@@ -162,8 +156,6 @@ async def test_connect_home_assistant():
         ]
     )
     with patch("floorcast.adapters.home_assistant.connect", return_value=ws) as connect:
-        async with connect_home_assistant(
-            "http://localhost:8123", "fake-token"
-        ) as client:
+        async with connect_home_assistant("http://localhost:8123", "fake-token") as client:
             assert isinstance(client, HomeAssistantClient)
             assert connect.called

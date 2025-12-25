@@ -86,9 +86,7 @@ def generate_grouped_mermaid(edges: list[str], nodes: set[str]) -> str:
 
 
 def main() -> None:
-    input_file = (
-        Path(sys.argv[1]) if len(sys.argv) > 1 else Path("tach_module_graph.mmd")
-    )
+    input_file = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("tach_module_graph.mmd")
     content = input_file.read_text()
     edges, nodes = parse_mermaid(content)
     output = generate_grouped_mermaid(edges, nodes)

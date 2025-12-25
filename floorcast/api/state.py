@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from starlette.datastructures import State
+
 from floorcast.domain.models import Subscriber
 
 if TYPE_CHECKING:
@@ -8,6 +10,6 @@ if TYPE_CHECKING:
 
 
 @dataclass(kw_only=True, frozen=True)
-class AppState:
+class AppState(State):
     subscribers: set[Subscriber]
     snapshot_service: SnapshotService

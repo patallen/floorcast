@@ -56,9 +56,7 @@ class HomeAssistantClient:
     async def subscribe(self, event_type: str) -> int:
         next_id = next(self._counter)
         await self._websocket.send(
-            json.dumps(
-                {"id": next_id, "type": "subscribe_events", "event_type": event_type}
-            )
+            json.dumps({"id": next_id, "type": "subscribe_events", "event_type": event_type})
         )
         # TODO: Do something if this fails
         #  '{"id": 1,"type": "result","success": false,"result": null}'
@@ -108,9 +106,7 @@ def _create_ha_event(data: dict[str, Any]) -> HAEvent:
         event_type=event["event_type"],
         domain=entity_id.split(".")[0],
         entity_id=entity_id,
-        time_fired=datetime.fromisoformat(event["time_fired"]).replace(
-            tzinfo=timezone.utc
-        ),
+        time_fired=datetime.fromisoformat(event["time_fired"]).replace(tzinfo=timezone.utc),
         data=event["data"],
         context=event["context"],
     )
@@ -139,9 +135,7 @@ async def map_ha_event(ha_event: HAEvent) -> Event:
 
 
 @asynccontextmanager
-async def connect_home_assistant(
-    url: str, token: str
-) -> AsyncIterator[HomeAssistantClient]:
+async def connect_home_assistant(url: str, token: str) -> AsyncIterator[HomeAssistantClient]:
     async with connect(url) as ws:
         async with HomeAssistantClient(ws, token) as client:
             await client.subscribe("state_changed")

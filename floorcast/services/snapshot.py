@@ -51,9 +51,7 @@ class SnapshotService:
     async def initialize(self) -> None:
         latest_state = await self.get_latest_state()
         self._set_cache_state(latest_state.state)
-        logger.info(
-            "rehydrated snapshot state", last_event_id=latest_state.last_event_id
-        )
+        logger.info("rehydrated snapshot state", last_event_id=latest_state.last_event_id)
 
     def update_state(self, entity_id: str, state: str | None) -> None:
         self.state_cache[entity_id] = state

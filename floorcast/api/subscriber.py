@@ -12,6 +12,4 @@ class SubscriberChannel:
         await self._ws.send_json({"type": "snapshot", "state": state})
 
     async def send_event(self, entity_id: str, state: str | None) -> None:
-        await self._ws.send_json(
-            {"type": "event", "entity_id": entity_id, "state": state}
-        )
+        await self._ws.send_json({"type": "event", "entity_id": entity_id, "state": state})

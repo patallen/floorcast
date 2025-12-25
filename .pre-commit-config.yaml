@@ -22,6 +22,8 @@ repos:
           - pydantic-settings
           - structlog
           - websockets
+          - uvicorn
+          - fastapi
   - repo: local
     hooks:
     - id: tach
