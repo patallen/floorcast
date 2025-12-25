@@ -2,10 +2,11 @@ services:
   floorcast:
     build: .
     ports:
-      - "8000:8000"
+      - "80:8000"
     environment:
       - FLOORCAST_HA_WEBSOCKET_URL=ws://homeassistant.local:8123/api/websocket
       - FLOORCAST_HA_WEBSOCKET_TOKEN=${FLOORCAST_HA_WEBSOCKET_TOKEN}
+      - FLOORCAST_INTERVAL_SECONDS=${FLOORCAST_INTERVAL_SECONDS:-300}
       - FLOORCAST_DB_URI=/data/floorcast.db
       - FLOORCAST_LOG_TO_CONSOLE=true
     volumes:
