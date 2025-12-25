@@ -40,10 +40,16 @@ class HomeAssistantClient:
         self._counter = count(1)
 
     async def authenticate(self) -> None:
+        res = json.loads(await self._websocket.recv())
+        if not res["type"] == "auth_required":
+            logger.info("Home Assistant authentication not required")
+            return
+
         auth_payload = json.dumps({"type": "auth", "access_token": self._auth_token})
         await self._websocket.send(auth_payload)
 
         result = await self._websocket.recv()
+
         if not json.loads(result)["type"] == "auth_ok":
             raise ValueError("Failed to authenticate with Home Assistant")
 
@@ -54,6 +60,8 @@ class HomeAssistantClient:
                 {"id": next_id, "type": "subscribe_events", "event_type": event_type}
             )
         )
+        # TODO: Do something if this fails
+        #  '{"id": 1,"type": "result","success": false,"result": null}'
         await self._websocket.recv()
         return next_id
 
@@ -66,9 +74,9 @@ class HomeAssistantClient:
         if message_type == "event":
             return _create_ha_event(data)
 
-        raise ValueError(f"Unknown message type: {data['type']}")
+        raise ValueError(f"Unexpected message type: '{data['type']}'")
 
-    def __aiter__(self) -> "HomeAssistantClient":
+    def __aiter__(self) -> "HomeAssistantClient":  # pragma: no cover
         return self
 
     async def __anext__(self) -> HAEvent:
