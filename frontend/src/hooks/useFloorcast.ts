@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EntityState, Registry, TimelineEvent, WSMessage } from "../types";
 
-const WS_URL = "ws://localhost:8000/events/live";
-const API_URL = "http://localhost:8000";
+const WS_URL = `ws://${window.location.host}/events/live`;
+const API_URL = `http://${window.location.host}`;
 const MAX_TIMELINE_EVENTS = 10000;
 
 export function useFloorcast() {

@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from floorcast.api.routes import ws_router
 from floorcast.api.state import AppState
@@ -30,4 +33,5 @@ def create_app(
         registry=registry,
     )
     app.include_router(ws_router)
+    app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static")
     return app
