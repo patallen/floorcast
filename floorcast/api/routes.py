@@ -1,11 +1,17 @@
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+
 import structlog
 from fastapi import APIRouter, Depends
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
-from floorcast.api.dependencies import get_snapshot_service
+from floorcast.api.dependencies import get_event_repo, get_snapshot_service, get_snapshot_service_ws
 from floorcast.api.subscriber import SubscriberChannel
 from floorcast.domain.models import Registry, Subscriber
 from floorcast.services.snapshot import SnapshotService
+
+if TYPE_CHECKING:
+    from floorcast.repositories.event import EventRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -15,7 +21,7 @@ ws_router = APIRouter()
 @ws_router.websocket("/events/live")
 async def events_live(
     websocket: WebSocket,
-    snapshot_service: SnapshotService = Depends(get_snapshot_service),
+    snapshot_service: SnapshotService = Depends(get_snapshot_service_ws),
 ) -> None:
     await websocket.accept()
     subscriber = Subscriber()
@@ -31,6 +37,22 @@ async def events_live(
     finally:
         websocket.app.state.subscribers.discard(subscriber)
         logger.info("subscriber disconnected", subscriber_id=subscriber.id)
+
+
+@ws_router.get("/timeline")
+async def events(
+    start_time: datetime,
+    end_time: datetime | None = None,
+    snapshot_service: SnapshotService = Depends(get_snapshot_service),
+    events_repo: EventRepository = Depends(get_event_repo),
+) -> dict[str, Any]:
+    from dataclasses import asdict
+
+    snapshot = await snapshot_service.get_state_at(start_time)
+    timeline_events = await events_repo.get_between_id_and_timestamp(
+        snapshot.last_event_id or 0, end_time or datetime.now()
+    )
+    return {"snapshot": asdict(snapshot), "events": [asdict(event) for event in timeline_events]}
 
 
 async def send_registry(channel: SubscriberChannel, registry: Registry) -> None:

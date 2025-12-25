@@ -34,6 +34,15 @@ class SnapshotService:
     def _set_cache_state(self, state: dict[str, Any]) -> None:
         self.state_cache = state
 
+    async def get_state_at(self, start_time: datetime) -> LatestState:
+        snapshot = await self.snapshot_repo.get_before_timestamp(start_time)
+        state = snapshot.state if snapshot else {}
+        last_event_id = snapshot.last_event_id if snapshot else None
+        events = await self.event_repo.get_between_id_and_timestamp(last_event_id or 0, start_time)
+        for event in events:
+            state[event.entity_id] = event.state
+        return LatestState(state=state, last_event_id=last_event_id)
+
     async def get_latest_state(self) -> LatestState:
         latest = await self.snapshot_repo.get_latest()
         state = latest.state if latest else {}
