@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from floorcast.api.routes import ws_router
 from floorcast.api.state import AppState
@@ -16,6 +17,13 @@ def create_app(
     snapshot_service: SnapshotService,
 ) -> FastAPI:
     app = FastAPI(name="floorcast")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.state = AppState(
         subscribers=subscribers,
         snapshot_service=snapshot_service,

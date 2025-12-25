@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 import structlog
 from aiosqlite import Connection
@@ -33,6 +34,15 @@ class SnapshotRepository(SnapshotStore):
         row = await cursor.fetchone()
         if not row:
             raise ValueError(f"Snapshot with id {snapshot_id} not found")
+        return Snapshot.from_dict(dict(row))
+
+    async def get_before_timestamp(self, timestamp: datetime) -> Snapshot | None:
+        cursor = await self.conn.execute(
+            "SELECT * FROM snapshots WHERE created_at < ?", (timestamp.isoformat(),)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
         return Snapshot.from_dict(dict(row))
 
     async def get_latest(self) -> Snapshot | None:
