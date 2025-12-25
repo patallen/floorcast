@@ -41,3 +41,9 @@ export type WSMessage =
   | { type: "connected"; subscriber_id: string }
   | { type: "snapshot"; state: EntityState }
   | { type: "event"; entity_id: string; state: string | null };
+
+export interface TimelineEvent {
+  entity_id: string;
+  state: string | null;
+  timestamp: number;
+}

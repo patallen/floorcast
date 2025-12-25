@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFloorcast } from "./hooks/useFloorcast";
-import type { Entity } from "./types";
+import type { Entity, Registry, TimelineEvent } from "./types";
 import "./App.css";
 
 function App() {
-  const { registry, entityStates, connected } = useFloorcast();
+  const { registry, entityStates, connected, timelineEvents } = useFloorcast();
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [changedEntities, setChangedEntities] = useState<Set<string>>(new Set());
   const prevStatesRef = useRef<Record<string, string | null>>({});
@@ -45,17 +45,11 @@ function App() {
 
   const entitiesOnFloor = useMemo(() => {
     if (!registry || !selectedFloorId) return [];
-    console.log("selectedFloorId", selectedFloorId);
-    console.log("registry", registry.areas);
-
     // Get areas on this floor
     const areasOnFloor = Object.values(registry.areas).filter(
       (a) => a.floor_id === selectedFloorId
     );
-    console.log("areasOnFloor", areasOnFloor);
     const areaIds = new Set(areasOnFloor.map((a) => a.id));
-    console.log("areaIds", areaIds);
-    console.log("entities", registry.entities);
 
     // Get entities in those areas (direct or via device) that have state
     return Object.values(registry.entities).filter((e) => {
@@ -121,6 +115,82 @@ function App() {
           </div>
         )}
       </main>
+
+      <Timeline events={timelineEvents} registry={registry} />
+    </div>
+  );
+}
+
+const TIME_SCALES = [
+  { label: "1m", ms: 60 * 1000 },
+  { label: "5m", ms: 5 * 60 * 1000 },
+  { label: "15m", ms: 15 * 60 * 1000 },
+  { label: "1h", ms: 60 * 60 * 1000 },
+];
+
+function Timeline({ events, registry }: { events: TimelineEvent[]; registry: Registry | null }) {
+  const [now, setNow] = useState(Date.now());
+  const [timeWindow, setTimeWindow] = useState(5 * 60 * 1000);
+  const windowStart = now - timeWindow;
+
+  // Use requestAnimationFrame for smooth updates
+  useEffect(() => {
+    let animationId: number;
+    const tick = () => {
+      setNow(Date.now());
+      animationId = requestAnimationFrame(tick);
+    };
+    animationId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animationId);
+  }, []);
+
+  const recentEvents = events.filter((e) => e.timestamp >= windowStart);
+
+  const labelCount = 6;
+  const labels = Array.from({ length: labelCount }, (_, i) => {
+    const fraction = i / (labelCount - 1);
+    const ms = timeWindow * (1 - fraction);
+    if (ms === 0) return "now";
+    if (ms >= 60 * 60 * 1000) return `-${Math.round(ms / (60 * 60 * 1000))}h`;
+    if (ms >= 60 * 1000) return `-${Math.round(ms / (60 * 1000))}m`;
+    return `-${Math.round(ms / 1000)}s`;
+  });
+
+  return (
+    <div className="timeline">
+      <div className="timeline-header">
+        <div className="timeline-scales">
+          {TIME_SCALES.map((scale) => (
+            <button
+              key={scale.label}
+              className={timeWindow === scale.ms ? "active" : ""}
+              onClick={() => setTimeWindow(scale.ms)}
+            >
+              {scale.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="timeline-track">
+        {recentEvents.map((event, i) => {
+          const position = ((event.timestamp - windowStart) / timeWindow) * 100;
+          const entityName = registry?.entities[event.entity_id]?.display_name ?? event.entity_id;
+          return (
+            <div
+              key={`${event.entity_id}-${event.timestamp}-${i}`}
+              className="timeline-event"
+              style={{ transform: `translateX(${position}cqw) translateX(-50%)` }}
+              title={`${entityName}: ${event.state}`}
+            />
+          );
+        })}
+        <div className="timeline-now" />
+      </div>
+      <div className="timeline-labels">
+        {labels.map((label, i) => (
+          <span key={i}>{label}</span>
+        ))}
+      </div>
     </div>
   );
 }
