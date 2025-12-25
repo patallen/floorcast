@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -8,10 +10,10 @@ from starlette.websockets import WebSocket, WebSocketDisconnect
 from floorcast.api.dependencies import get_event_repo, get_snapshot_service, get_snapshot_service_ws
 from floorcast.api.subscriber import SubscriberChannel
 from floorcast.domain.models import Registry, Subscriber
-from floorcast.services.snapshot import SnapshotService
 
 if TYPE_CHECKING:
     from floorcast.repositories.event import EventRepository
+    from floorcast.services.snapshot import SnapshotService
 
 logger = structlog.get_logger(__name__)
 
