@@ -38,7 +38,8 @@ class SnapshotRepository(SnapshotStore):
 
     async def get_before_timestamp(self, timestamp: datetime) -> Snapshot | None:
         cursor = await self.conn.execute(
-            "SELECT * FROM snapshots WHERE created_at < ?", (timestamp.isoformat(),)
+            "SELECT * FROM snapshots WHERE datetime(created_at) < datetime(?)",
+            (timestamp.isoformat(),),
         )
         row = await cursor.fetchone()
         if not row:

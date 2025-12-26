@@ -92,3 +92,43 @@ async def test_get_latest(repo, event_repo):
 async def test_get_latest_empty(repo):
     result = await repo.get_latest()
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_before_timestamp_exists(conn, repo, event_repo):
+    snapshot1 = Snapshot(last_event_id=1, state={"a": "1"})
+    snapshot2 = Snapshot(last_event_id=2, state={"b": "2"})
+    snapshot3 = Snapshot(last_event_id=3, state={"c": "3"})
+
+    await repo.create(snapshot1)
+    await repo.create(snapshot2)
+    await repo.create(snapshot3)
+
+    await conn.execute(
+        "UPDATE snapshots SET created_at = '2021-01-01 00:00:00' WHERE id = ?;", (snapshot1.id,)
+    )
+    await conn.execute(
+        "UPDATE snapshots SET created_at = '2021-01-02 00:00:00' WHERE id = ?;", (snapshot2.id,)
+    )
+    await conn.execute(
+        "UPDATE snapshots SET created_at = '2021-01-03 00:00:00' WHERE id = ?;", (snapshot3.id,)
+    )
+    await conn.commit()
+
+    result = await repo.get_before_timestamp(datetime(2021, 1, 2))
+    assert result.id == snapshot1.id
+
+
+@pytest.mark.asyncio
+async def test_get_before_timestamp_returns_none_if_not_exists(conn, repo, event_repo):
+    snapshot1 = Snapshot(last_event_id=1, state={"a": "1"})
+    await repo.create(snapshot1)
+
+    await conn.execute(
+        "UPDATE snapshots SET created_at = '2025-01-01 00:00:00' WHERE id = ?;", (snapshot1.id,)
+    )
+    await conn.commit()
+
+    # timestamp is before the first available snapshot
+    result = await repo.get_before_timestamp(datetime(2021, 1, 2))
+    assert result is None

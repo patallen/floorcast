@@ -125,7 +125,7 @@ class TestRegistry:
                     entity_category="",
                     domain="light",
                     display_name="A",
-                    device_id=None,
+                    device_id="fake",
                     area_id=None,
                 )
             },
@@ -141,3 +141,11 @@ class TestRegistry:
         assert "dev1" in result["devices"]
         assert "area1" in result["areas"]
         assert "floor1" in result["floors"]
+
+    def test_empty(self):
+        assert Registry.empty().to_dict() == {
+            "entities": {},
+            "devices": {},
+            "areas": {},
+            "floors": {},
+        }
