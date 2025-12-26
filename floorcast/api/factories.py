@@ -7,18 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from floorcast.api.routes import ws_router
-from floorcast.api.state import AppState
 
 if TYPE_CHECKING:
-    from floorcast.domain.models import Registry, Subscriber
-    from floorcast.services.snapshot import SnapshotService
+    from floorcast.api.state import AppState
 
 
-def create_app(
-    subscribers: set[Subscriber],
-    registry: Registry,
-    snapshot_service: SnapshotService,
-) -> FastAPI:
+def create_app(app_state: AppState) -> FastAPI:
     app = FastAPI(name="floorcast")
     app.add_middleware(
         CORSMiddleware,
@@ -27,11 +21,7 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.state = AppState(
-        subscribers=subscribers,
-        snapshot_service=snapshot_service,
-        registry=registry,
-    )
+    app.state = app_state
     app.include_router(ws_router)
     app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static")
     return app

@@ -5,11 +5,10 @@ from unittest.mock import patch
 import pytest
 
 from floorcast.adapters.home_assistant import (
-    HAEvent,
     HomeAssistantClient,
     connect_home_assistant,
-    map_ha_event,
 )
+from floorcast.domain.models import Event
 
 
 @pytest.fixture
@@ -97,14 +96,14 @@ async def test_subscribe():
 
 
 @pytest.mark.asyncio
-async def test_anext_ha_event(event_string):
+async def test_anext_event(event_string):
     ws = FakeWebsocket([event_string])
     client = HomeAssistantClient(websocket=ws, auth_token="fake-token")
     event = await client.__anext__()
-    assert isinstance(event, HAEvent)
+    assert isinstance(event, Event)
     assert event.entity_id == "light.kitchen"
-    assert event.time_fired == datetime(2020, 1, 1, tzinfo=timezone.utc)
-    assert event.data == {"entity_id": "light.kitchen"}
+    assert event.timestamp == datetime(2020, 1, 1, tzinfo=timezone.utc)
+    assert event.entity_id == "light.kitchen"
 
 
 @pytest.mark.asyncio
@@ -113,7 +112,7 @@ async def test_anext_skips_ha_result(event_string: str):
     client = HomeAssistantClient(websocket=ws, auth_token="fake-token")
     event = await client.__anext__()
 
-    assert isinstance(event, HAEvent)
+    assert isinstance(event, Event)
 
 
 @pytest.mark.asyncio
@@ -123,27 +122,6 @@ async def test_anext_raises_for_invalid_type(event_string: str):
 
     with pytest.raises(ValueError, match="Unexpected message type: 'bad'"):
         await client.__anext__()
-
-
-@pytest.mark.asyncio
-async def test_map_ha_event():
-    ha_event = HAEvent(
-        id=1,
-        event_type="state_changed",
-        domain="light",
-        entity_id="light.kitchen",
-        time_fired=datetime(2020, 1, 1, tzinfo=timezone.utc),
-        data={"entity_id": "light.kitchen", "new_state": {"state": "on"}},
-        context={"id": "fake-id"},
-    )
-    mapped_event = await map_ha_event(ha_event)
-
-    assert mapped_event.id == -1
-    assert mapped_event.event_type == "state_changed"
-    assert mapped_event.domain == "light"
-    assert mapped_event.entity_id == "light.kitchen"
-    assert mapped_event.timestamp == datetime(2020, 1, 1, tzinfo=timezone.utc)
-    assert mapped_event.data == {"state": "on"}
 
 
 @pytest.mark.asyncio

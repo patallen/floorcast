@@ -11,7 +11,7 @@ def test_defaults():
         # _env_file=None ensures the local env file is not used
         config = Config(_env_file=None)
 
-    assert config.snapshot_interval_seconds == 30
+    assert config.snapshot_interval_seconds == 300
     assert config.ha_websocket_url == "ws://homeassistant.local:8123/api/websocket"
     assert config.db_uri == "floorcast.db"
     assert config.entity_blocklist == ["update.*"]

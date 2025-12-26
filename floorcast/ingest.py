@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, AsyncIterator
 
 import structlog
 
-from floorcast.domain.filtering import FilteredEventStream, HasEntityId
+from floorcast.domain.filtering import FilteredEventStream
 
 if TYPE_CHECKING:
     from floorcast.domain.filtering import EntityBlockList
@@ -16,21 +15,19 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
-async def run_ingestion[T: HasEntityId](
+async def run_ingestion(
     subscribers: set[Subscriber],
     event_repo: EventStore,
     snapshot_service: SnapshotService,
-    block_list: EntityBlockList,
-    event_source: AsyncIterator[T],
-    event_mapper: Callable[..., Awaitable[Event]],
+    entity_blocklist: EntityBlockList,
+    event_source: AsyncIterator[Event],
 ) -> None:
     await snapshot_service.initialize()
     logger.info("snapshot service initialized")
 
-    event_pipeline = FilteredEventStream(source=event_source, block_list=block_list)
+    event_pipeline = FilteredEventStream(source=event_source, block_list=entity_blocklist)
 
-    async for raw_event in event_pipeline:
-        event = await event_mapper(raw_event)
+    async for event in event_pipeline:
         event = await event_repo.create(event)
         logger.info(
             "event persisted",
