@@ -5,7 +5,7 @@ class SubscriberChannel:
     def __init__(self, websocket: WebSocket) -> None:
         self._ws = websocket
 
-    async def send_connected(self, subscriber_id: str) -> None:
+    async def send_connected(self, subscriber_id: int) -> None:
         await self._ws.send_json({"type": "connected", "subscriber_id": subscriber_id})
 
     async def send_snapshot(self, state: dict[str, str | None]) -> None:

@@ -9,9 +9,10 @@ from floorcast.adapters.home_assistant import connect_home_assistant
 from floorcast.api.factories import create_app
 from floorcast.api.state import AppState
 from floorcast.domain.filtering import EntityBlockList
-from floorcast.domain.models import Registry
+from floorcast.domain.models import Event, Registry
 from floorcast.infrastructure.config import Config
 from floorcast.infrastructure.db import connect_db, init_db
+from floorcast.infrastructure.event_bus import EventBus
 from floorcast.infrastructure.logging import configure_logging
 from floorcast.ingest import run_ingestion
 from floorcast.repositories.event import EventRepository
@@ -25,6 +26,8 @@ logger = structlog.get_logger(__name__)
 
 
 async def main() -> None:
+    event_bus = EventBus[Event]()
+
     async with connect_db(config.db_uri) as db_conn:
         logger.info("connected to floorcast db", db_uri=config.db_uri)
         await init_db(db_conn)
@@ -38,7 +41,7 @@ async def main() -> None:
         blocklist = EntityBlockList(config.entity_blocklist)
 
         app_state = AppState(
-            registry=Registry.empty(), snapshot_service=snapshot_service, subscribers=set()
+            registry=Registry.empty(), snapshot_service=snapshot_service, event_bus=event_bus
         )
         app = create_app(app_state)
 
@@ -52,8 +55,8 @@ async def main() -> None:
                         backoff = 2
                         app_state.registry = await client.fetch_registry()
                         await run_ingestion(
+                            event_bus=event_bus,
                             event_source=client,
-                            subscribers=app_state.subscribers,
                             snapshot_service=app_state.snapshot_service,
                             event_repo=event_repo,
                             entity_blocklist=blocklist,

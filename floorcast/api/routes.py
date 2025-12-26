@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -7,11 +8,17 @@ import structlog
 from fastapi import APIRouter, Depends
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
-from floorcast.api.dependencies import get_event_repo, get_snapshot_service, get_snapshot_service_ws
+from floorcast.api.dependencies import (
+    get_event_bus_ws,
+    get_event_repo,
+    get_snapshot_service,
+    get_snapshot_service_ws,
+)
 from floorcast.api.subscriber import SubscriberChannel
-from floorcast.domain.models import Registry, Subscriber
+from floorcast.domain.models import Event, Registry
 
 if TYPE_CHECKING:
+    from floorcast.domain.ports import EventPublisher
     from floorcast.repositories.event import EventRepository
     from floorcast.services.snapshot import SnapshotService
 
@@ -24,21 +31,22 @@ ws_router = APIRouter()
 async def events_live(
     websocket: WebSocket,
     snapshot_service: SnapshotService = Depends(get_snapshot_service_ws),
+    event_bus: EventPublisher = Depends(get_event_bus_ws),
 ) -> None:
     await websocket.accept()
-    subscriber = Subscriber()
-    websocket.app.state.subscribers.add(subscriber)
+    queue = asyncio.Queue[Event]()
+    unsubscribe = event_bus.subscribe(queue)
     channel = SubscriberChannel(websocket)
-    logger.info("subscriber connected", subscriber_id=subscriber.id)
+    logger.info("subscriber connected", queue_id=id(queue))
 
     try:
         await send_registry(channel, websocket.app.state.registry)
-        await stream_events(subscriber, channel, snapshot_service)
+        await stream_events(queue, channel, snapshot_service)
     except WebSocketDisconnect:
         pass
     finally:
-        websocket.app.state.subscribers.discard(subscriber)
-        logger.info("subscriber disconnected", subscriber_id=subscriber.id)
+        unsubscribe()
+        logger.info("subscriber disconnected", queue_id=id(queue))
 
 
 @ws_router.get("/timeline")
@@ -62,21 +70,21 @@ async def send_registry(channel: SubscriberChannel, registry: Registry) -> None:
 
 
 async def stream_events(
-    subscriber: Subscriber,
+    queue: asyncio.Queue[Event],
     channel: SubscriberChannel,
     snapshot_service: SnapshotService,
 ) -> None:
-    await channel.send_connected(subscriber.id)
+    await channel.send_connected(id(queue))
     latest_state = await snapshot_service.get_latest_state()
     await channel.send_snapshot(latest_state.state)
 
     if latest_state.last_event_id:
         while True:
-            event = await subscriber.queue.get()
+            event = await queue.get()
             if event.id > latest_state.last_event_id:
                 await channel.send_event(event.entity_id, event.state)
                 break
 
     while True:
-        event = await subscriber.queue.get()
+        event = await queue.get()
         await channel.send_event(event.entity_id, event.state)
