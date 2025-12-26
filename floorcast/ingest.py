@@ -8,15 +8,15 @@ from floorcast.domain.filtering import FilteredEventStream
 
 if TYPE_CHECKING:
     from floorcast.domain.filtering import EntityBlockList
-    from floorcast.domain.models import Event, Subscriber
-    from floorcast.domain.ports import EventStore
+    from floorcast.domain.models import Event
+    from floorcast.domain.ports import EventPublisher, EventStore
     from floorcast.services.snapshot import SnapshotService
 
 logger = structlog.get_logger(__name__)
 
 
 async def run_ingestion(
-    subscribers: set[Subscriber],
+    event_bus: EventPublisher,
     event_repo: EventStore,
     snapshot_service: SnapshotService,
     entity_blocklist: EntityBlockList,
@@ -37,8 +37,9 @@ async def run_ingestion(
             event_type=event.event_type,
         )
         snapshot_service.update_state(event.entity_id, event.state)
-        for subscriber in subscribers:
-            subscriber.queue.put_nowait(event)
+
+        event_bus.publish(event)
+
         if snapshot := await snapshot_service.maybe_snapshot(event.id):
             logger.info(
                 "snapshot taken",
