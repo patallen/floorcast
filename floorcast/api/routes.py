@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import structlog
 from fastapi import APIRouter, Depends
@@ -14,7 +14,6 @@ from floorcast.api.dependencies import (
     get_snapshot_service,
     get_snapshot_service_ws,
 )
-from floorcast.api.subscriber import SubscriberChannel
 from floorcast.domain.models import Event, Registry
 
 if TYPE_CHECKING:
@@ -27,6 +26,87 @@ logger = structlog.get_logger(__name__)
 ws_router = APIRouter()
 
 
+class SubscriptionRegistry:
+    def __init__(self) -> None:
+        self._subscriptions: dict[str, Subscription] = {}
+
+    def is_subscribed(self, name: str) -> bool:
+        return name in self._subscriptions
+
+    def unsubscribe(self, name: str) -> None:
+        subscription = self._subscriptions.pop(name, None)
+        if not subscription:
+            raise ValueError(f"No subscription found for {name}")
+        subscription.unsubscribe()
+
+    def subscribe(self, name: str, subscription: Subscription) -> None:
+        self._subscriptions[name] = subscription
+
+    def unsubscribe_all(self) -> None:
+        for subscription in self._subscriptions.values():
+            subscription.unsubscribe()
+
+
+class Subscription:
+    def __init__(self, unsubscribe_fn: Callable[[], None], task: asyncio.Task[Any]) -> None:
+        self._unsubscribe_fn = unsubscribe_fn
+        self._task = task
+
+    def unsubscribe(self) -> None:
+        self._unsubscribe_fn()
+        self._task.cancel()
+
+
+async def route_requests(
+    outbound_queue: asyncio.Queue[dict[str, Any]],
+    websocket: WebSocket,
+    snapshot_service: SnapshotService,
+    event_bus: EventPublisher,
+) -> None:
+    domain_queue = asyncio.Queue[Event]()
+
+    subscriptions = SubscriptionRegistry()
+
+    try:
+        async for message in websocket.iter_json():
+            if message["type"] == "ping":
+                await outbound_queue.put({"type": "pong"})
+                continue
+            elif message["type"] == "subscribe.live":
+                if subscriptions.is_subscribed("live"):
+                    outbound_queue.put_nowait(
+                        {"type": "error", "message": "Already subscribed to live events"}
+                    )
+                    continue
+                subscriptions.subscribe(
+                    "live",
+                    Subscription(
+                        unsubscribe_fn=event_bus.subscribe(domain_queue),
+                        task=asyncio.create_task(
+                            stream_events(domain_queue, outbound_queue, snapshot_service)
+                        ),
+                    ),
+                )
+                outbound_queue.put_nowait({"type": "subscribed"})
+            elif message["type"] == "unsubscribe.live":
+                if not subscriptions.is_subscribed("live"):
+                    outbound_queue.put_nowait(
+                        {"type": "error", "message": "Not subscribed to live events"}
+                    )
+                    continue
+
+                subscriptions.unsubscribe("live")
+                outbound_queue.put_nowait({"type": "unsubscribed"})
+    finally:
+        subscriptions.unsubscribe_all()
+
+
+async def sender(outbound_queue: asyncio.Queue[dict[str, Any]], websocket: WebSocket) -> None:
+    while True:
+        message = await outbound_queue.get()
+        await websocket.send_json(message)
+
+
 @ws_router.websocket("/events/live")
 async def events_live(
     websocket: WebSocket,
@@ -34,19 +114,19 @@ async def events_live(
     event_bus: EventPublisher = Depends(get_event_bus_ws),
 ) -> None:
     await websocket.accept()
-    queue = asyncio.Queue[Event]()
-    unsubscribe = event_bus.subscribe(queue)
-    channel = SubscriberChannel(websocket)
-    logger.info("subscriber connected", queue_id=id(queue))
+    outbound_queue = asyncio.Queue[dict[str, Any]]()
+    logger.info("subscriber connected", queue_id=id(outbound_queue))
+    await send_registry(outbound_queue, websocket.app.state.registry)
 
     try:
-        await send_registry(channel, websocket.app.state.registry)
-        await stream_events(queue, channel, snapshot_service)
+        await asyncio.gather(
+            route_requests(outbound_queue, websocket, snapshot_service, event_bus),
+            sender(outbound_queue, websocket),
+        )
     except WebSocketDisconnect:
         pass
     finally:
-        unsubscribe()
-        logger.info("subscriber disconnected", queue_id=id(queue))
+        logger.info("subscriber disconnected", queue_id=id(outbound_queue))
 
 
 @ws_router.get("/timeline")
@@ -65,26 +145,29 @@ async def events(
     return {"snapshot": asdict(snapshot), "events": [asdict(event) for event in timeline_events]}
 
 
-async def send_registry(channel: SubscriberChannel, registry: Registry) -> None:
-    await channel.send_registry(registry.to_dict())
+async def send_registry(outbound_queue: asyncio.Queue[dict[str, Any]], registry: Registry) -> None:
+    await outbound_queue.put({"type": "registry", "registry": registry.to_dict()})
 
 
 async def stream_events(
     queue: asyncio.Queue[Event],
-    channel: SubscriberChannel,
+    outbound_queue: asyncio.Queue[dict[str, Any]],
     snapshot_service: SnapshotService,
 ) -> None:
-    await channel.send_connected(id(queue))
     latest_state = await snapshot_service.get_latest_state()
-    await channel.send_snapshot(latest_state.state)
+    outbound_queue.put_nowait({"type": "snapshot", "state": latest_state.state})
 
     if latest_state.last_event_id:
         while True:
             event = await queue.get()
             if event.id > latest_state.last_event_id:
-                await channel.send_event(event.entity_id, event.state)
+                outbound_queue.put_nowait(
+                    {"type": "event", "entity_id": event.entity_id, "state": event.state}
+                )
                 break
 
     while True:
         event = await queue.get()
-        await channel.send_event(event.entity_id, event.state)
+        outbound_queue.put_nowait(
+            {"type": "event", "entity_id": event.entity_id, "state": event.state}
+        )

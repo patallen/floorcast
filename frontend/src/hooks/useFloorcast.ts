@@ -33,6 +33,9 @@ export function useFloorcast() {
       switch (message.type) {
         case "registry":
           setRegistry(message.registry);
+          console.log("Registry updated:", message.registry);
+          // Auto-subscribe to live after getting registry
+          ws.send(JSON.stringify({ type: "subscribe.live" }));
           break;
         case "snapshot":
           setEntityStates(message.state);
