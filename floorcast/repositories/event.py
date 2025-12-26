@@ -48,7 +48,7 @@ class EventRepository(EventStore):
         await self.conn.commit()
         return event
 
-    async def get_by_serial(self, serial: int) -> Event | None:
+    async def get_by_id(self, serial: int) -> Event | None:
         cursor = await self.conn.execute("SELECT * FROM events WHERE id = ?", (serial,))
         row = await cursor.fetchone()
         if row is None:

@@ -1,7 +1,10 @@
-from datetime import datetime
-from typing import Protocol
+from __future__ import annotations
 
-from floorcast.domain.models import Event, Snapshot
+from datetime import datetime
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from floorcast.domain.models import Event, Snapshot
 
 
 class SnapshotStore(Protocol):
@@ -12,6 +15,7 @@ class SnapshotStore(Protocol):
 
 class EventStore(Protocol):
     async def create(self, event: Event) -> Event: ...
+    async def get_by_id(self, event_id: int) -> Event | None: ...
     async def get_between_id_and_timestamp(
         self, event_id: int, timestamp: datetime
     ) -> list[Event]: ...

@@ -48,11 +48,11 @@ async def test_create_event(repo):
 
 
 @pytest.mark.asyncio
-async def test_get_by_serial(repo):
+async def test_get_by_id(repo):
     event = make_event()
     created = await repo.create(event)
 
-    result = await repo.get_by_serial(created.id)
+    result = await repo.get_by_id(created.id)
 
     assert result is not None
     assert result.id == created.id
@@ -60,8 +60,8 @@ async def test_get_by_serial(repo):
 
 
 @pytest.mark.asyncio
-async def test_get_by_serial_not_found(repo):
-    result = await repo.get_by_serial(999)
+async def test_get_by_id_not_found(repo):
+    result = await repo.get_by_id(999)
     assert result is None
 
 
