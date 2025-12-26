@@ -143,3 +143,7 @@ class Registry:
             "areas": {a.id: asdict(a) for a in self.areas.values()},
             "floors": {f.id: asdict(f) for f in self.floors.values()},
         }
+
+    @classmethod
+    def empty(cls) -> "Registry":
+        return cls(entities={}, devices={}, areas={}, floors={})

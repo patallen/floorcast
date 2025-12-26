@@ -4,7 +4,7 @@ import type { EntityState, Registry, TimelineEvent, WSMessage } from "../types";
 const WS_PROTOCOL = window.location.protocol === "https:" ? "wss:" : "ws:";
 const WS_URL = `${WS_PROTOCOL}//${window.location.host}/events/live`;
 const API_URL = `${window.location.protocol}//${window.location.host}`;
-const MAX_TIMELINE_EVENTS = 10000;
+const MAX_TIMELINE_EVENTS = 20000;
 
 export function useFloorcast() {
   const [registry, setRegistry] = useState<Registry | null>(null);

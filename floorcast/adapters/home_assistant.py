@@ -98,7 +98,7 @@ class HomeAssistantClient:
     def __aiter__(self) -> "HomeAssistantClient":  # pragma: no cover
         return self
 
-    async def __anext__(self) -> HAEvent:
+    async def __anext__(self) -> Event:
         while True:
             message = await self._receive()
             if not isinstance(message, HAEvent):
@@ -107,7 +107,7 @@ class HomeAssistantClient:
                     result=message,
                 )
                 continue
-            return message
+            return _map_to_domain_event(message)
 
     async def __aenter__(self) -> "HomeAssistantClient":
         await self.authenticate()
@@ -136,7 +136,7 @@ def _create_ha_result(data: dict[str, Any]) -> HAResult:
     return HAResult(id=data["id"], success=data["success"], result=data.get("result"))
 
 
-async def map_ha_event(ha_event: HAEvent) -> Event:
+def _map_to_domain_event(ha_event: HAEvent) -> Event:
     data = ha_event.data
     new_state = data.get("new_state") or {}
     state = new_state.get("state")
@@ -159,4 +159,5 @@ async def connect_home_assistant(url: str, token: str) -> AsyncIterator[HomeAssi
     async with connect(url) as ws:
         async with HomeAssistantClient(ws, token) as client:
             logger.info("connected to home assistant", url=url)
+            await client.subscribe("state_changed")
             yield client
