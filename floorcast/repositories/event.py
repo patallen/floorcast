@@ -4,7 +4,7 @@ from datetime import datetime
 import structlog
 from aiosqlite import Connection
 
-from floorcast.domain.models import Event
+from floorcast.domain.models import CompactEvent, Event
 from floorcast.domain.ports import EventStore
 
 logger = structlog.get_logger(__name__)
@@ -47,6 +47,32 @@ class EventRepository(EventStore):
         event.id = row[0]  # type: ignore[index]
         await self.conn.commit()
         return event
+
+    async def get_timeline_between(self, start_id: int, end_time: datetime) -> list[CompactEvent]:
+        rows = await self.conn.execute_fetchall(
+            """
+            SELECT id, entity_id, timestamp, state FROM events
+            WHERE id > ? AND timestamp < ?
+            ORDER BY id
+            """,
+            (start_id, end_time.isoformat()),
+        )
+        events = [
+            CompactEvent(
+                id=row[0],
+                entity_id=row[1],
+                timestamp=datetime.fromisoformat(row[2]),
+                state=row[3],
+            )
+            for row in rows
+        ]
+        logger.debug(
+            "fetched events for timeline",
+            after_id=id,
+            before_timestamp=end_time.isoformat(),
+            count=len(events),
+        )
+        return events
 
     async def get_by_id(self, serial: int) -> Event | None:
         cursor = await self.conn.execute("SELECT * FROM events WHERE id = ?", (serial,))

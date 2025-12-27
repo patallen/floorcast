@@ -115,7 +115,7 @@ async def events(
     from dataclasses import asdict
 
     snapshot = await snapshot_service.get_state_at(start_time)
-    timeline_events = await events_repo.get_between_id_and_timestamp(
+    timeline_events = await events_repo.get_timeline_between(
         snapshot.last_event_id or 0, end_time or datetime.now()
     )
     return {"snapshot": asdict(snapshot), "events": [asdict(event) for event in timeline_events]}
