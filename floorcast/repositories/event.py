@@ -68,7 +68,7 @@ class EventRepository(EventStore):
         ]
         logger.debug(
             "fetched events for timeline",
-            after_id=id,
+            after_id=start_id,
             before_timestamp=end_time.isoformat(),
             count=len(events),
         )

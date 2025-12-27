@@ -10,14 +10,15 @@ from floorcast.api.factories import create_app
 from floorcast.api.state import AppState
 from floorcast.domain.filtering import EntityBlockList
 from floorcast.domain.models import Event, Registry
+from floorcast.infrastructure.backoff import Backoff
 from floorcast.infrastructure.config import Config
 from floorcast.infrastructure.db import connect_db, init_db
 from floorcast.infrastructure.event_bus import EventBus
 from floorcast.infrastructure.logging import configure_logging
-from floorcast.ingest import run_ingestion
 from floorcast.repositories.event import EventRepository
 from floorcast.repositories.snapshot import SnapshotRepository
 from floorcast.server import run_websocket_server
+from floorcast.services.ingestion import IngestionService
 from floorcast.services.snapshot import SnapshotService
 
 config = Config()  # type: ignore[call-arg]
@@ -37,34 +38,31 @@ async def main() -> None:
         snapshot_service = SnapshotService(
             snapshot_repo, event_repo, config.snapshot_interval_seconds
         )
-
         blocklist = EntityBlockList(config.entity_blocklist)
-
         app_state = AppState(
             registry=Registry.empty(), snapshot_service=snapshot_service, event_bus=event_bus
         )
+        ingest_service = IngestionService(
+            event_bus=event_bus,
+            event_repo=event_repo,
+            snapshot_service=snapshot_service,
+            entity_blocklist=blocklist,
+        )
         app = create_app(app_state)
+        websocket_url = config.ha_websocket_url
+        websocket_token = config.ha_websocket_token
 
         async def ingestion_loop() -> None:
-            backoff = 2
-            while True:
+            for backoff in Backoff(2, 60):
                 try:
-                    async with connect_home_assistant(
-                        config.ha_websocket_url, config.ha_websocket_token
-                    ) as client:
-                        backoff = 2
+                    async with connect_home_assistant(websocket_url, websocket_token) as client:
+                        logger.info("connection to home assistant", websocket_url=websocket_url)
                         app_state.registry = await client.fetch_registry()
-                        await run_ingestion(
-                            event_bus=event_bus,
-                            event_source=client,
-                            snapshot_service=app_state.snapshot_service,
-                            event_repo=event_repo,
-                            entity_blocklist=blocklist,
-                        )
+                        await ingest_service.run(client)
+                        backoff.reset()
                 except (ConnectionClosed, ConnectionRefusedError, OSError):
                     logger.warning("connection to home assistant lost", retry_in=backoff)
-                    await asyncio.sleep(backoff)
-                    backoff = min(backoff * 2, 60)
+                    await asyncio.sleep(backoff.wait_seconds())
 
         server_fn = run_websocket_server(app)
         await asyncio.gather(ingestion_loop(), server_fn)
