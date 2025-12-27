@@ -9,6 +9,10 @@ exclude = [
 source_roots = ["."]
 
 [[modules]]
+path = "floorcast.common"
+depends_on = []
+
+[[modules]]
 path = "floorcast.domain"
 depends_on = []
 
@@ -30,15 +34,11 @@ depends_on = ["floorcast.domain"]
 
 [[modules]]
 path = "floorcast.api"
-depends_on = ["floorcast.domain", "floorcast.services"]
-
-[[modules]]
-path = "floorcast.ingest"
-depends_on = ["floorcast.domain"]
+depends_on = ["floorcast.domain", "floorcast.services", "floorcast.common"]
 
 [[modules]]
 path = "floorcast.server"
-depends_on = ["floorcast.domain"]
+depends_on = []
 
 [[modules]]
 path = "main"
@@ -47,7 +47,6 @@ depends_on = [
     "floorcast.api",
     "floorcast.domain",
     "floorcast.infrastructure",
-    "floorcast.ingest",
     "floorcast.repositories",
     "floorcast.services",
     "floorcast.server",
