@@ -5,13 +5,14 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Callable, Protocol
 
 if TYPE_CHECKING:
-    from floorcast.domain.models import CompactEvent, Event, Snapshot
+    from floorcast.domain.models import CompactEvent, ConstructedState, Event, Snapshot
 
 
 class SnapshotStore(Protocol):
     async def create(self, snapshot: Snapshot) -> Snapshot: ...
     async def get_latest(self) -> Snapshot | None: ...
     async def get_before_timestamp(self, timestamp: datetime) -> Snapshot | None: ...
+    async def get_by_id(self, snapshot_id: int) -> Snapshot | None: ...
 
 
 class EventStore(Protocol):
@@ -28,3 +29,11 @@ class EventStore(Protocol):
 class EventPublisher(Protocol):
     def subscribe(self, queue: asyncio.Queue[Event]) -> Callable[[], None]: ...
     def publish(self, event: Event) -> None: ...
+
+
+class StateReconstructor(Protocol):
+    async def get_state_at(self, end_time: datetime) -> ConstructedState: ...
+
+
+class SnapshotPolicy(Protocol):
+    def should_snapshot(self, events_since_snapshot: int, last_snapshot_time: datetime) -> bool: ...

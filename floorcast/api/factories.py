@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from floorcast.api.routes import ws_router
 
 if TYPE_CHECKING:
-    from floorcast.api.state import AppState
+    from floorcast.api.app_state import AppState
 
 
 def create_app(app_state: AppState) -> FastAPI:

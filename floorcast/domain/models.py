@@ -148,3 +148,11 @@ class Registry:
     @classmethod
     def empty(cls) -> "Registry":
         return cls(entities={}, devices={}, areas={}, floors={})
+
+
+@dataclass(kw_only=True, frozen=True)
+class ConstructedState:
+    state: dict[str, str | None]
+    last_event_id: int | None
+    snapshot_id: int | None
+    snapshot_time: datetime | None

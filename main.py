@@ -6,10 +6,11 @@ import structlog
 from websockets import ConnectionClosed
 
 from floorcast.adapters.home_assistant import connect_home_assistant
+from floorcast.api.app_state import AppState
 from floorcast.api.factories import create_app
-from floorcast.api.state import AppState
 from floorcast.domain.filtering import EntityBlockList
 from floorcast.domain.models import Event, Registry
+from floorcast.domain.snapshot import ElapsedTimePolicy
 from floorcast.infrastructure.backoff import Backoff
 from floorcast.infrastructure.config import Config
 from floorcast.infrastructure.db import connect_db, init_db
@@ -19,7 +20,7 @@ from floorcast.repositories.event import EventRepository
 from floorcast.repositories.snapshot import SnapshotRepository
 from floorcast.server import run_websocket_server
 from floorcast.services.ingestion import IngestionService
-from floorcast.services.snapshot import SnapshotService
+from floorcast.services.state import StateService
 
 config = Config()  # type: ignore[call-arg]
 configure_logging(config.log_level, config.log_to_console)
@@ -35,24 +36,25 @@ async def main() -> None:
 
         event_repo = EventRepository(db_conn)
         snapshot_repo = SnapshotRepository(db_conn)
-        snapshot_service = SnapshotService(
-            snapshot_repo, event_repo, config.snapshot_interval_seconds
-        )
+        state_service = StateService(snapshot_repo, event_repo)
         blocklist = EntityBlockList(config.entity_blocklist)
 
         app_state = AppState(
             registry=Registry.empty(),
-            snapshot_service=snapshot_service,
             event_bus=event_bus,
             event_repo=event_repo,
+            state_service=state_service,
         )
         app = create_app(app_state)
 
+        snapshot_policy = ElapsedTimePolicy(config.snapshot_interval_seconds)
         ingest_service = IngestionService(
             event_bus=event_bus,
             event_repo=event_repo,
-            snapshot_service=snapshot_service,
+            snapshot_repo=snapshot_repo,
+            state_service=state_service,
             entity_blocklist=blocklist,
+            snapshot_policy=snapshot_policy,
         )
         websocket_url = config.ha_websocket_url
         websocket_token = config.ha_websocket_token
