@@ -61,7 +61,7 @@ class EventRepository(EventStore):
             CompactEvent(
                 id=row[0],
                 entity_id=row[1],
-                timestamp=datetime.fromisoformat(row[2]),
+                timestamp=int(datetime.fromisoformat(row[2]).timestamp() * 1000),
                 state=row[3],
             )
             for row in rows

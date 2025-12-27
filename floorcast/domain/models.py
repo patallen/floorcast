@@ -13,7 +13,7 @@ def _parse_datetime(value: str) -> datetime:
 class CompactEvent:
     id: int
     entity_id: str
-    timestamp: datetime
+    timestamp: int  # Unix timestamp in milliseconds
     state: str | None
 
 

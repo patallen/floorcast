@@ -28,7 +28,7 @@ def make_compact_event(entity_id: str, state: str, id: int = 1) -> CompactEvent:
         id=id,
         entity_id=entity_id,
         state=state,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=int(datetime.now(timezone.utc).timestamp() * 1000),
     )
 
 
