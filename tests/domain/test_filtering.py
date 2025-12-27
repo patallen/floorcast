@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from floorcast.domain.filtering import EntityBlockList, FilteredEventStream
+from floorcast.domain.event_filtering import EntityBlockList, FilteredEventStream
 
 
 @dataclass

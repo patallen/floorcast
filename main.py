@@ -8,9 +8,9 @@ from websockets import ConnectionClosed
 from floorcast.adapters.home_assistant import connect_home_assistant
 from floorcast.api.app_state import AppState
 from floorcast.api.factories import create_app
-from floorcast.domain.filtering import EntityBlockList
+from floorcast.domain.event_filtering import EntityBlockList
 from floorcast.domain.models import Event, Registry
-from floorcast.domain.snapshot import ElapsedTimePolicy
+from floorcast.domain.snapshot_policies import ElapsedTimePolicy
 from floorcast.infrastructure.backoff import Backoff
 from floorcast.infrastructure.config import Config
 from floorcast.infrastructure.db import connect_db, init_db

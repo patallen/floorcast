@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterator
 
 import structlog
 
-from floorcast.domain.filtering import EntityBlockList, FilteredEventStream
+from floorcast.domain.event_filtering import EntityBlockList, FilteredEventStream
 from floorcast.domain.models import Snapshot
 
 if TYPE_CHECKING:
