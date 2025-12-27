@@ -68,7 +68,7 @@ class SnapshotService:
             snapshot_event_id=last_event_id,
             events_applied=len(events),
         )
-        return LatestState(state=state, last_event_id=last_event_id)
+        return LatestState(state=state, last_event_id=events[-1].id if events else last_event_id)
 
     async def initialize(self) -> None:
         latest_state = await self.get_latest_state()

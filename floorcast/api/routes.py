@@ -133,17 +133,11 @@ async def stream_events(
     latest_state = await snapshot_service.get_latest_state()
     outbound_queue.put_nowait({"type": "snapshot", "state": latest_state.state})
 
-    if latest_state.last_event_id:
-        while True:
-            event = await queue.get()
-            if event.id > latest_state.last_event_id:
-                outbound_queue.put_nowait(
-                    {"type": "event", "entity_id": event.entity_id, "state": event.state}
-                )
-                break
-
+    latest_event_id = latest_state.last_event_id or 0
     while True:
         event = await queue.get()
+        if event.id <= latest_event_id:
+            continue
         outbound_queue.put_nowait(
             {"type": "event", "entity_id": event.entity_id, "state": event.state}
         )

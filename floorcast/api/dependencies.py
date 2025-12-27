@@ -13,7 +13,7 @@ def get_snapshot_service(request: Request) -> "SnapshotService":
 
 
 def get_event_repo(request: Request) -> "EventRepository":
-    return request.app.state.snapshot_service.event_repo  # type: ignore
+    return request.app.state.event_repo  # type: ignore
 
 
 # WebSocket versions for backward compatibility

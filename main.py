@@ -39,16 +39,21 @@ async def main() -> None:
             snapshot_repo, event_repo, config.snapshot_interval_seconds
         )
         blocklist = EntityBlockList(config.entity_blocklist)
+
         app_state = AppState(
-            registry=Registry.empty(), snapshot_service=snapshot_service, event_bus=event_bus
+            registry=Registry.empty(),
+            snapshot_service=snapshot_service,
+            event_bus=event_bus,
+            event_repo=event_repo,
         )
+        app = create_app(app_state)
+
         ingest_service = IngestionService(
             event_bus=event_bus,
             event_repo=event_repo,
             snapshot_service=snapshot_service,
             entity_blocklist=blocklist,
         )
-        app = create_app(app_state)
         websocket_url = config.ha_websocket_url
         websocket_token = config.ha_websocket_token
 
