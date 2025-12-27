@@ -6,6 +6,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Setup Tailscale
         uses: tailscale/github-action@v4
@@ -13,8 +14,6 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-        env:
-          TS_DEBUG: true
 
       - name: Deploy
         run: |
