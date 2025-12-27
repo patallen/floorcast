@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from floorcast.api.routes import ws_router
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 
 def create_app(app_state: AppState) -> FastAPI:
     app = FastAPI(name="floorcast")
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
