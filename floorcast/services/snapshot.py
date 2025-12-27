@@ -40,10 +40,16 @@ class SnapshotService:
         snapshot = await self.snapshot_repo.get_before_timestamp(start_time)
         state = snapshot.state if snapshot else {}
         last_event_id = snapshot.last_event_id if snapshot else None
-        events = await self.event_repo.get_between_id_and_timestamp(last_event_id or 0, start_time)
+        events = await self.event_repo.get_timeline_between(last_event_id or 0, start_time)
         for event in events:
             state[event.entity_id] = event.state
-        return LatestState(state=state, last_event_id=last_event_id)
+        logger.debug(
+            "reconstructed state at timestamp",
+            start_time=start_time.isoformat(),
+            snapshot_event_id=last_event_id,
+            events_applied=len(events),
+        )
+        return LatestState(state=state, last_event_id=events[-1].id if events else last_event_id)
 
     async def get_latest_state(self) -> LatestState:
         latest = await self.snapshot_repo.get_latest()
@@ -52,11 +58,16 @@ class SnapshotService:
         latest_created_at = latest.created_at if latest else None
         self.last_snapshot_time = latest_created_at or datetime.now(timezone.utc)
 
-        events = await self.event_repo.get_between_id_and_timestamp(
+        events = await self.event_repo.get_timeline_between(
             last_event_id or 0, datetime.now(timezone.utc)
         )
         for event in events:
             state[event.entity_id] = event.state
+        logger.debug(
+            "reconstructed latest state",
+            snapshot_event_id=last_event_id,
+            events_applied=len(events),
+        )
         return LatestState(state=state, last_event_id=last_event_id)
 
     async def initialize(self) -> None:

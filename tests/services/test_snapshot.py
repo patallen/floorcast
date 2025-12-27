@@ -1,10 +1,9 @@
-import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 
 import pytest
 
-from floorcast.domain.models import Event, Snapshot
+from floorcast.domain.models import CompactEvent, Snapshot
 from floorcast.domain.ports import EventStore, SnapshotStore
 from floorcast.services.snapshot import SnapshotService
 
@@ -24,17 +23,12 @@ def service(snapshot_repo, event_repo):
     return SnapshotService(snapshot_repo, event_repo, interval_seconds=60)
 
 
-def make_event(entity_id: str, state: str, id: int = 1) -> Event:
-    return Event(
+def make_compact_event(entity_id: str, state: str, id: int = 1) -> CompactEvent:
+    return CompactEvent(
         id=id,
-        domain=entity_id.split(".")[0],
         entity_id=entity_id,
-        event_id=uuid.uuid4(),
-        event_type="state_changed",
-        external_id=str(uuid.uuid4()),
         state=state,
         timestamp=datetime.now(timezone.utc),
-        data={},
     )
 
 
@@ -47,7 +41,7 @@ class TestInitialize:
             state={"light.living_room": "on"},
             created_at=datetime.now(timezone.utc),
         )
-        event_repo.get_between_id_and_timestamp.return_value = []
+        event_repo.get_timeline_between.return_value = []
 
         await service.initialize()
 
@@ -61,9 +55,9 @@ class TestInitialize:
             state={"light.living_room": "on"},
             created_at=datetime.now(timezone.utc),
         )
-        event_repo.get_between_id_and_timestamp.return_value = [
-            make_event("light.living_room", "off", id=6),
-            make_event("light.bedroom", "on", id=7),
+        event_repo.get_timeline_between.return_value = [
+            make_compact_event("light.living_room", "off", id=6),
+            make_compact_event("light.bedroom", "on", id=7),
         ]
 
         await service.initialize()
@@ -73,7 +67,7 @@ class TestInitialize:
     @pytest.mark.asyncio
     async def test_initializes_empty_when_no_snapshot(self, service, snapshot_repo, event_repo):
         snapshot_repo.get_latest.return_value = None
-        event_repo.get_between_id_and_timestamp.return_value = []
+        event_repo.get_timeline_between.return_value = []
 
         await service.initialize()
 
@@ -149,7 +143,7 @@ class TestGetLatestState:
             state={"light.living_room": "on"},
             created_at=datetime.now(timezone.utc),
         )
-        event_repo.get_between_id_and_timestamp.return_value = []
+        event_repo.get_timeline_between.return_value = []
 
         result = await service.get_latest_state()
 
@@ -164,8 +158,8 @@ class TestGetLatestState:
             state={"light.living_room": "on"},
             created_at=datetime.now(timezone.utc),
         )
-        event_repo.get_between_id_and_timestamp.return_value = [
-            make_event("light.living_room", "off", id=6),
+        event_repo.get_timeline_between.return_value = [
+            make_compact_event("light.living_room", "off", id=6),
         ]
 
         result = await service.get_latest_state()
@@ -175,7 +169,7 @@ class TestGetLatestState:
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_snapshot(self, service, snapshot_repo, event_repo):
         snapshot_repo.get_latest.return_value = None
-        event_repo.get_between_id_and_timestamp.return_value = []
+        event_repo.get_timeline_between.return_value = []
 
         result = await service.get_latest_state()
 
@@ -193,8 +187,8 @@ class TestGetStateAt:
             state={"light.living_room": "on"},
             created_at=datetime(2021, 6, 15, 10, 0, 0, tzinfo=timezone.utc),
         )
-        event_repo.get_between_id_and_timestamp.return_value = [
-            make_event("light.bedroom", "on", id=6),
+        event_repo.get_timeline_between.return_value = [
+            make_compact_event("light.bedroom", "on", id=6),
         ]
 
         result = await service.get_state_at(target_time)
@@ -208,7 +202,7 @@ class TestGetStateAt:
     ):
         target_time = datetime(2021, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         snapshot_repo.get_before_timestamp.return_value = None
-        event_repo.get_between_id_and_timestamp.return_value = []
+        event_repo.get_timeline_between.return_value = []
 
         result = await service.get_state_at(target_time)
 

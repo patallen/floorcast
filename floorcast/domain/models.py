@@ -9,6 +9,14 @@ def _parse_datetime(value: str) -> datetime:
     return datetime.fromisoformat(value).replace(tzinfo=timezone.utc)
 
 
+@dataclass(kw_only=True, frozen=True, slots=True)
+class CompactEvent:
+    id: int
+    entity_id: str
+    timestamp: datetime
+    state: str | None
+
+
 @dataclass(kw_only=True)
 class Event:
     id: int = -1

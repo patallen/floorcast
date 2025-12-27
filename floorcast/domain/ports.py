@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Callable, Protocol
 
 if TYPE_CHECKING:
-    from floorcast.domain.models import Event, Snapshot
+    from floorcast.domain.models import CompactEvent, Event, Snapshot
 
 
 class SnapshotStore(Protocol):
@@ -20,6 +20,9 @@ class EventStore(Protocol):
     async def get_between_id_and_timestamp(
         self, event_id: int, timestamp: datetime
     ) -> list[Event]: ...
+    async def get_timeline_between(
+        self, start_id: int, end_time: datetime
+    ) -> list[CompactEvent]: ...
 
 
 class EventPublisher(Protocol):
