@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import APIRouter, Depends
@@ -14,6 +14,7 @@ from floorcast.api.dependencies import (
     get_snapshot_service,
     get_snapshot_service_ws,
 )
+from floorcast.api.subscriptions import Subscription, SubscriptionRegistry
 from floorcast.domain.models import Event, Registry
 
 if TYPE_CHECKING:
@@ -24,37 +25,6 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 ws_router = APIRouter()
-
-
-class SubscriptionRegistry:
-    def __init__(self) -> None:
-        self._subscriptions: dict[str, Subscription] = {}
-
-    def is_subscribed(self, name: str) -> bool:
-        return name in self._subscriptions
-
-    def unsubscribe(self, name: str) -> None:
-        subscription = self._subscriptions.pop(name, None)
-        if not subscription:
-            raise ValueError(f"No subscription found for {name}")
-        subscription.unsubscribe()
-
-    def subscribe(self, name: str, subscription: Subscription) -> None:
-        self._subscriptions[name] = subscription
-
-    def unsubscribe_all(self) -> None:
-        for subscription in self._subscriptions.values():
-            subscription.unsubscribe()
-
-
-class Subscription:
-    def __init__(self, unsubscribe_fn: Callable[[], None], task: asyncio.Task[Any]) -> None:
-        self._unsubscribe_fn = unsubscribe_fn
-        self._task = task
-
-    def unsubscribe(self) -> None:
-        self._unsubscribe_fn()
-        self._task.cancel()
 
 
 async def route_requests(
