@@ -44,12 +44,20 @@ class HomeAssistantClient:
         entity_data = await self._call_wait("config/entity_registry/list")
         area_data = await self._call_wait("config/area_registry/list")
         device_data = await self._call_wait("config/device_registry/list")
-        return Registry(
+        registry = Registry(
             entities={e.id: e for e in (Entity.from_dict(e) for e in entity_data)},
             floors={f.id: f for f in (Floor.from_dict(f) for f in floor_data)},
             areas={a.id: a for a in (Area.from_dict(a) for a in area_data)},
             devices={d.id: d for d in (Device.from_dict(d) for d in device_data)},
         )
+        logger.info(
+            "fetched registry from home assistant",
+            entities=len(registry.entities),
+            floors=len(registry.floors),
+            areas=len(registry.areas),
+            devices=len(registry.devices),
+        )
+        return registry
 
     async def send_json(self, data: dict[str, Any]) -> None:
         await self._websocket.send(json.dumps(data))
@@ -69,6 +77,7 @@ class HomeAssistantClient:
 
         if not result["type"] == "auth_ok":
             raise ValueError("Failed to authenticate with Home Assistant")
+        logger.info("authenticated with home assistant")
 
     async def subscribe(self, event_type: str) -> int:
         next_id = next(self._counter)
@@ -76,6 +85,7 @@ class HomeAssistantClient:
         # TODO: Do something if this fails
         #  '{"id": 1,"type": "result","success": false,"result": null}'
         await self.recv_json()
+        logger.info("subscribed to home assistant events", event_type=event_type)
         return next_id
 
     async def _receive(self) -> HAEvent | HAResult:

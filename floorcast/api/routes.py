@@ -39,11 +39,14 @@ async def route_requests(
 
     try:
         async for message in websocket.iter_json():
-            if message["type"] == "ping":
+            msg_type = message.get("type", "unknown")
+            logger.debug("received message", type=msg_type)
+
+            if msg_type == "ping":
                 await outbound_queue.put({"type": "pong"})
-                continue
-            elif message["type"] == "subscribe.live":
+            elif msg_type == "subscribe.live":
                 if subscriptions.is_subscribed("live"):
+                    logger.warning("already subscribed to live")
                     outbound_queue.put_nowait(
                         {"type": "error", "message": "Already subscribed to live events"}
                     )
@@ -58,15 +61,17 @@ async def route_requests(
                     ),
                 )
                 outbound_queue.put_nowait({"type": "subscribed"})
-            elif message["type"] == "unsubscribe.live":
+            elif msg_type == "unsubscribe.live":
                 if not subscriptions.is_subscribed("live"):
+                    logger.warning("not subscribed to live")
                     outbound_queue.put_nowait(
                         {"type": "error", "message": "Not subscribed to live events"}
                     )
                     continue
-
                 subscriptions.unsubscribe("live")
                 outbound_queue.put_nowait({"type": "unsubscribed"})
+            else:
+                logger.warning("unknown message type", type=msg_type)
     finally:
         subscriptions.unsubscribe_all()
 
@@ -74,6 +79,7 @@ async def route_requests(
 async def sender(outbound_queue: asyncio.Queue[dict[str, Any]], websocket: WebSocket) -> None:
     while True:
         message = await outbound_queue.get()
+        logger.debug("sending message", type=message.get("type"))
         await websocket.send_json(message)
 
 

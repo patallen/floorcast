@@ -60,4 +60,8 @@ class EventRepository(EventStore):
             "SELECT * FROM events WHERE id > ? AND timestamp < ?",
             (id, timestamp.isoformat()),
         )
-        return [Event.from_dict(dict(row)) for row in rows]
+        events = [Event.from_dict(dict(row)) for row in rows]
+        logger.debug(
+            "fetched events", after_id=id, before_timestamp=timestamp.isoformat(), count=len(events)
+        )
+        return events
