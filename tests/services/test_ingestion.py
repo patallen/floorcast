@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from floorcast.domain.event_filtering import EntityBlockList
-from floorcast.domain.models import ConstructedState, Event, Snapshot
+from floorcast.domain.events import EntityStateChanged
+from floorcast.domain.models import Event
 from floorcast.services.ingestion import IngestionService
 
 
@@ -24,24 +25,6 @@ def make_event(
         entity_id=entity_id,
         event_type="state_changed",
         data={},
-    )
-
-
-def make_constructed_state() -> ConstructedState:
-    return ConstructedState(
-        state={},
-        last_event_id=0,
-        snapshot_id=1,
-        snapshot_time=datetime.now(timezone.utc),
-    )
-
-
-def make_snapshot() -> Snapshot:
-    return Snapshot(
-        id=1,
-        state={},
-        last_event_id=1,
-        created_at=datetime.now(timezone.utc),
     )
 
 
@@ -69,40 +52,16 @@ def event_repo():
 
 
 @pytest.fixture
-def state_service():
-    service = AsyncMock()
-    service.get_state_at.return_value = make_constructed_state()
-    return service
-
-
-@pytest.fixture
-def snapshot_repo():
-    repo = AsyncMock()
-    repo.create.return_value = make_snapshot()
-    return repo
-
-
-@pytest.fixture
-def snapshot_policy():
-    policy = Mock()
-    policy.should_snapshot.return_value = False
-    return policy
-
-
-@pytest.fixture
 def entity_blocklist():
     return EntityBlockList(blockers=[])
 
 
 @pytest.fixture
-def service(event_bus, event_repo, state_service, snapshot_repo, snapshot_policy, entity_blocklist):
+def service(event_bus, event_repo, entity_blocklist):
     return IngestionService(
         event_bus=event_bus,
         event_repo=event_repo,
-        snapshot_repo=snapshot_repo,
-        state_service=state_service,
         entity_blocklist=entity_blocklist,
-        snapshot_policy=snapshot_policy,
     )
 
 
@@ -115,6 +74,7 @@ async def test_publishes_to_event_bus(service, event_bus):
 
     event_bus.publish.assert_called_once()
     published_event = event_bus.publish.call_args[0][0]
+    assert isinstance(published_event, EntityStateChanged)
     assert published_event.entity_id == event.entity_id
 
 
@@ -126,55 +86,6 @@ async def test_persists_event_to_repo(service, event_repo):
     await service.run(event_source=event_source)
 
     event_repo.create.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_takes_snapshot_when_policy_approves(service, snapshot_repo, snapshot_policy):
-    snapshot_policy.should_snapshot.return_value = True
-    event_source = events_from_list([make_event()])
-
-    await service.run(event_source=event_source)
-
-    snapshot_repo.create.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_does_not_snapshot_when_policy_rejects(service, snapshot_repo, snapshot_policy):
-    snapshot_policy.should_snapshot.return_value = False
-    event_source = events_from_list([make_event()])
-
-    await service.run(event_source=event_source)
-
-    snapshot_repo.create.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_takes_snapshot_on_cold_start(
-    snapshot_repo, snapshot_policy, state_service, event_bus, event_repo
-):
-    # Cold start: no prior snapshot
-    state_service.get_state_at.return_value = ConstructedState(
-        state={},
-        last_event_id=0,
-        snapshot_id=None,
-        snapshot_time=None,
-    )
-    snapshot_policy.should_snapshot.return_value = False  # policy says no, but cold start overrides
-
-    service = IngestionService(
-        event_bus=event_bus,
-        event_repo=event_repo,
-        snapshot_repo=snapshot_repo,
-        state_service=state_service,
-        entity_blocklist=EntityBlockList(blockers=[]),
-        snapshot_policy=snapshot_policy,
-    )
-    event_source = events_from_list([make_event()])
-
-    await service.run(event_source=event_source)
-
-    # Should snapshot despite policy saying no, because it's cold start
-    snapshot_repo.create.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -204,3 +115,15 @@ async def test_processes_multiple_events(service, event_bus, event_repo):
 
     assert event_bus.publish.call_count == 3
     assert event_repo.create.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_published_event_contains_domain_event(service, event_bus):
+    event = make_event(entity_id="light.kitchen", state="off")
+    event_source = events_from_list([event])
+
+    await service.run(event_source=event_source)
+
+    published_event = event_bus.publish.call_args[0][0]
+    assert published_event.event.entity_id == "light.kitchen"
+    assert published_event.event.state == "off"

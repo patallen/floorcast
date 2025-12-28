@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Protocol
 
 if TYPE_CHECKING:
     from floorcast.domain.models import CompactEvent, ConstructedState, Event, Snapshot
@@ -26,9 +25,12 @@ class EventStore(Protocol):
     ) -> list[CompactEvent]: ...
 
 
-class EventPublisher(Protocol):
-    def subscribe(self, queue: asyncio.Queue[Event]) -> Callable[[], None]: ...
-    def publish(self, event: Event) -> None: ...
+class EventPublisher[T](Protocol):
+    def subscribe[E](
+        self, event_type: type[E], callback: Callable[[E], Coroutine[Any, Any, None]]
+    ) -> Callable[[], None]: ...
+    def publish(self, event: T) -> None: ...
+    async def wait_all(self) -> None: ...
 
 
 class StateReconstructor(Protocol):
