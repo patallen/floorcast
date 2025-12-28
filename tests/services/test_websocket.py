@@ -6,7 +6,6 @@ import pytest
 
 from floorcast.domain.events import EntityStateChanged, FCEvent
 from floorcast.domain.models import Event
-from floorcast.domain.ports import EventPublisher
 from floorcast.domain.websocket import WSConnection, WSMessage
 from floorcast.infrastructure.event_bus import TypedEventBus
 from floorcast.services.registry import RegistryService
@@ -16,7 +15,7 @@ from floorcast.services.websocket import WebsocketService
 
 @pytest.fixture
 def event_bus():
-    return mock.AsyncMock(spec=EventPublisher[FCEvent])
+    return mock.AsyncMock(spec=TypedEventBus[FCEvent])
 
 
 @pytest.fixture

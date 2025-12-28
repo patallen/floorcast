@@ -7,23 +7,20 @@ from starlette.datastructures import State
 from floorcast.domain.events import FCEvent
 
 if TYPE_CHECKING:
-    from floorcast.domain.ports import (
-        EventPublisher,
-        EventStore,
-        RegistryStore,
-        StateReconstructor,
-        WebsocketManager,
-    )
+    from floorcast.domain.ports import EventPublisher, EventStore
+    from floorcast.services.registry import RegistryService
+    from floorcast.services.state import StateService
+    from floorcast.services.websocket import WebsocketService
 
 
 class AppState(State):
     def __init__(
         self,
-        registry_service: RegistryStore,
+        registry_service: RegistryService,
         event_bus: EventPublisher[FCEvent],
         event_repo: EventStore,
-        state_service: StateReconstructor,
-        websocket_service: WebsocketManager,
+        state_service: StateService,
+        websocket_service: WebsocketService,
     ) -> None:
         super().__init__()
         self.event_repo = event_repo

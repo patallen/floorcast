@@ -9,7 +9,9 @@ from floorcast.domain.events import EntityStateChanged
 from floorcast.domain.models import Snapshot
 
 if TYPE_CHECKING:
-    from floorcast.domain.ports import SnapshotPolicy, SnapshotStore, StateReconstructor
+    from floorcast.domain.ports import SnapshotStore
+    from floorcast.domain.snapshot_policies import SnapshotPolicy
+    from floorcast.services.state import StateService
 
 logger = structlog.get_logger(__name__)
 
@@ -18,7 +20,7 @@ class SnapshotManager:
     def __init__(
         self,
         snapshot_repo: SnapshotStore,
-        state_service: StateReconstructor,
+        state_service: StateService,
         snapshot_policy: SnapshotPolicy,
     ) -> None:
         self._snapshot_repo = snapshot_repo

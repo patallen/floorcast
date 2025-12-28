@@ -1,6 +1,11 @@
+from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 
-from floorcast.domain.ports import SnapshotPolicy
+
+class SnapshotPolicy(ABC):
+    @abstractmethod
+    def should_snapshot(self, events_since_snapshot: int, last_snapshot_time: datetime) -> bool:
+        """Returns True if a snapshot should be taken, False otherwise."""
 
 
 class ElapsedTimePolicy(SnapshotPolicy):

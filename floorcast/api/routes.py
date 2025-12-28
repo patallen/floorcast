@@ -16,8 +16,9 @@ from floorcast.api.dependencies import (
 from floorcast.domain.websocket import WSConnection, WSMessage
 
 if TYPE_CHECKING:
-    from floorcast.domain.ports import StateReconstructor, WebsocketManager
-    from floorcast.repositories.event import EventRepository
+    from floorcast.domain.ports import EventStore
+    from floorcast.services.state import StateService
+    from floorcast.services.websocket import WebsocketService
 
 logger = structlog.get_logger(__name__)
 
@@ -28,8 +29,8 @@ ws_router = APIRouter()
 async def events(
     start_time: datetime,
     end_time: datetime | None = None,
-    state_service: StateReconstructor = Depends(get_state_service),
-    events_repo: EventRepository = Depends(get_event_repo),
+    state_service: StateService = Depends(get_state_service),
+    events_repo: EventStore = Depends(get_event_repo),
 ) -> dict[str, Any]:
     from dataclasses import asdict
 
@@ -56,6 +57,8 @@ def serialize(message: WSMessage) -> dict[str, Any]:
             "timestamp": data["timestamp"],
             "id": data["id"],
         }
+    if message.type == "pong":
+        return {"type": message.type}
     raise ValueError(f"Unknown message type: {message.type}")
 
 
@@ -66,7 +69,7 @@ async def sender(conn: WSConnection, ws: WebSocket) -> None:
         await ws.send_json(serialized)
 
 
-async def receiver(conn: WSConnection, ws: WebSocket, service: WebsocketManager) -> None:
+async def receiver(conn: WSConnection, ws: WebSocket, service: WebsocketService) -> None:
     async for message in ws.iter_json():
         service.send_message(conn, WSMessage(type=message["type"], data=message.get("data")))
 
@@ -74,7 +77,7 @@ async def receiver(conn: WSConnection, ws: WebSocket, service: WebsocketManager)
 @ws_router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    websocket_service: WebsocketManager = Depends(get_websocket_service_ws),
+    websocket_service: WebsocketService = Depends(get_websocket_service_ws),
 ) -> None:
     await websocket.accept()
     ws_conn = websocket_service.connect()

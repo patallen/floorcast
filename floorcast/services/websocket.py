@@ -1,17 +1,24 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from floorcast.domain.events import EntityStateChanged, FCEvent
-from floorcast.domain.ports import EventPublisher, RegistryStore, StateReconstructor
 from floorcast.domain.websocket import WSConnection, WSMessage
+
+if TYPE_CHECKING:
+    from floorcast.domain.ports import EventPublisher
+    from floorcast.services.registry import RegistryService
+    from floorcast.services.state import StateService
 
 
 class WebsocketService:
     def __init__(
         self,
         bus: EventPublisher[FCEvent],
-        state_service: StateReconstructor,
-        registry_service: RegistryStore,
+        state_service: StateService,
+        registry_service: RegistryService,
     ) -> None:
         self._bus = bus
         self._registry_service = registry_service
