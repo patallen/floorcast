@@ -13,6 +13,8 @@ RUN pip install uv
 
 COPY pyproject.toml ./
 COPY floorcast/ ./floorcast/
+COPY migrations/ ./migrations/
+COPY alembic.ini ./
 COPY main.py ./
 
 RUN uv sync --no-dev
