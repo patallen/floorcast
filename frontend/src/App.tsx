@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFloorcast } from "./hooks/useFloorcast";
 import type { Entity, TimelineEvent } from "./types";
 import "./App.css";
@@ -8,7 +8,22 @@ function App() {
   const [changedEntities, setChangedEntities] = useState<Set<string>>(new Set());
   const prevStatesRef = useRef<Record<string, string | null>>({});
   const [playhead, setPlayhead] = useState<number | null>(null); // null = live
+  const [debouncedPlayhead, setDebouncedPlayhead] = useState<number | null>(null);
   const [hoveredEntity, setHoveredEntity] = useState<string | null>(null);
+
+  // Throttle playhead for expensive computations
+  const lastUpdateRef = useRef(0);
+  useEffect(() => {
+    if (playhead === null) {
+      setDebouncedPlayhead(null);
+      return;
+    }
+    const now = Date.now();
+    if (now - lastUpdateRef.current >= 50) {
+      lastUpdateRef.current = now;
+      setDebouncedPlayhead(playhead);
+    }
+  }, [playhead]);
   const [groupBy, setGroupBy] = useState<"floor" | "area" | "device">("floor");
   const [viewMode, setViewMode] = useState<"all" | "tabs">("all");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -25,9 +40,10 @@ function App() {
     return index;
   }, [timelineEvents]);
 
-  // Compute state at playhead time (optimized with per-entity binary search)
+  // Compute state at playhead time using a lazy proxy
+  // Only performs binary search when a specific entity is accessed
   const effectiveStates = useMemo(() => {
-    if (playhead === null) return entityStates;
+    if (debouncedPlayhead === null) return entityStates;
 
     // Binary search to find the last event at or before playhead
     const findLastBefore = (arr: TimelineEvent[], target: number): TimelineEvent | null => {
@@ -46,17 +62,22 @@ function App() {
       return result;
     };
 
-    // For each entity with events, find state at playhead
-    const stateAtTime: Record<string, string | null> = {};
-    for (const [entityId, events] of Object.entries(eventsByEntity)) {
-      const lastEvent = findLastBefore(events, playhead);
-      if (lastEvent) {
-        stateAtTime[entityId] = lastEvent.state;
-      }
-    }
+    // Cache computed states to avoid repeated lookups
+    const cache: Record<string, string | null> = {};
 
-    return { ...entityStates, ...stateAtTime };
-  }, [playhead, entityStates, eventsByEntity]);
+    // Return a proxy that lazily computes state on access
+    return new Proxy(entityStates, {
+      get(target, prop: string) {
+        if (prop in cache) return cache[prop];
+        const events = eventsByEntity[prop];
+        if (!events) return target[prop];
+        const lastEvent = findLastBefore(events, debouncedPlayhead);
+        const state = lastEvent?.state ?? target[prop];
+        cache[prop] = state;
+        return state;
+      },
+    });
+  }, [debouncedPlayhead, entityStates, eventsByEntity]);
 
   // Track state changes and trigger flash effect (only when live)
   useEffect(() => {
@@ -93,13 +114,13 @@ function App() {
     prevStatesRef.current = { ...entityStates };
   }, [entityStates, playhead]);
 
-  // Get all entities with state
+  // Get all entities with state (use live entityStates to avoid recomputing on scrub)
   const entitiesWithState = useMemo(() => {
     if (!registry) return [];
     return Object.values(registry.entities).filter(
-      (e) => effectiveStates[e.id] !== undefined
+      (e) => entityStates[e.id] !== undefined
     );
-  }, [registry, effectiveStates]);
+  }, [registry, entityStates]);
 
   // Compute groups based on groupBy mode
   const groups = useMemo(() => {
@@ -247,7 +268,7 @@ function App() {
                     }
                     changed={changedEntities.has(entity.id)}
                     onHover={setHoveredEntity}
-                    onClick={() => setGraphEntityId(entity.id)}
+                    onSelect={setGraphEntityId}
                   />
                 ))}
               </div>
@@ -390,7 +411,12 @@ function Timeline({
     const timestamp = windowStart + fraction * timeWindow;
     setPlayhead(timestamp);
     setLive(false);
-    onPlayheadChange(timestamp);
+    // Throttle updates to parent
+    const now = Date.now();
+    if (now - lastPlayheadUpdateRef.current > 50) {
+      lastPlayheadUpdateRef.current = now;
+      onPlayheadChange(timestamp);
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -546,14 +572,14 @@ function formatState(state: string | null | undefined): string {
   return state;
 }
 
-function EntityCard({
+const EntityCard = React.memo(function EntityCard({
   entity,
   state,
   deviceName,
   areaName,
   changed,
   onHover,
-  onClick,
+  onSelect,
 }: {
   entity: Entity;
   state: string | null | undefined;
@@ -561,14 +587,14 @@ function EntityCard({
   areaName?: string;
   changed?: boolean;
   onHover?: (entityId: string | null) => void;
-  onClick?: () => void;
+  onSelect?: (entityId: string) => void;
 }) {
   return (
     <div
       className={`entity-card ${state === "on" ? "on" : ""} ${changed ? "changed" : ""}`}
       onMouseEnter={() => onHover?.(entity.id)}
       onMouseLeave={() => onHover?.(null)}
-      onClick={onClick}
+      onClick={() => onSelect?.(entity.id)}
     >
       <div className="entity-name">{entity.display_name}</div>
       {deviceName && <div className="entity-device">{deviceName}</div>}
@@ -579,7 +605,7 @@ function EntityCard({
       </div>
     </div>
   );
-}
+});
 
 function GraphModal({
   entity,
