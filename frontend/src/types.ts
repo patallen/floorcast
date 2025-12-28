@@ -32,18 +32,25 @@ export interface Registry {
   floors: Record<string, Floor>;
 }
 
+export interface EntityStateValue {
+  value: string | null;
+  unit: string | null;
+}
+
 export interface EntityState {
-  [entityId: string]: string | null;
+  [entityId: string]: EntityStateValue;
 }
 
 export type WSMessage =
   | { type: "registry"; registry: Registry }
   | { type: "connected"; subscriber_id: string }
   | { type: "snapshot"; state: EntityState }
-  | { type: "event"; entity_id: string; state: string | null };
+  | { type: "event"; entity_id: string; state: string | null; unit: string | null; timestamp: number; id: number };
 
 export interface TimelineEvent {
   entity_id: string;
   state: string | null;
+  unit: string | null;
   timestamp: number;
+  id: number;
 }

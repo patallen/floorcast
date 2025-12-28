@@ -44,7 +44,10 @@ class StateService(StateReconstructor):
         snapshot_time = snapshot.created_at if snapshot else None
         last_event_id = snapshot.last_event_id if snapshot else None
         for event in events:
-            state[event.entity_id] = event.state
+            state[event.entity_id] = {
+                "value": event.state,
+                "unit": event.unit,
+            }
             last_event_id = event.id
         return ConstructedState(
             state=state,

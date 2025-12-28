@@ -15,6 +15,7 @@ class CompactEvent:
     entity_id: str
     timestamp: int  # Unix timestamp in milliseconds
     state: str | None
+    unit: str | None
 
 
 @dataclass(kw_only=True)
@@ -28,6 +29,7 @@ class Event:
     state: str | None
     timestamp: datetime
     data: dict[str, Any]
+    unit: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -42,6 +44,7 @@ class Event:
             state=data["state"],
             timestamp=_parse_datetime(data["timestamp"]),
             data=json.loads(data["data"]),
+            unit=data["unit"],
             metadata=json.loads(cast(str, data.get("metadata") or "{}")),
         )
 
@@ -50,7 +53,7 @@ class Event:
 class Snapshot:
     id: int = -1
     last_event_id: int
-    state: dict[str, str | None]
+    state: dict[str, Any]
     created_at: datetime | None = None
 
     @classmethod
@@ -152,7 +155,7 @@ class Registry:
 
 @dataclass(kw_only=True, frozen=True)
 class ConstructedState:
-    state: dict[str, str | None]
+    state: dict[str, Any]
     last_event_id: int | None
     snapshot_id: int | None
     snapshot_time: datetime | None

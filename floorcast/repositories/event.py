@@ -26,8 +26,9 @@ class EventRepository(EventStore):
                 timestamp,
                 state,
                 data,
-                metadata
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                metadata,
+                unit
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(external_id) DO UPDATE SET external_id=excluded.external_id
             RETURNING *
             """,
@@ -41,6 +42,7 @@ class EventRepository(EventStore):
                 event.state,
                 json.dumps(event.data or {}),
                 json.dumps(event.metadata or {}),
+                event.unit,
             ),
         )
         row = await cursor.fetchone()
@@ -51,7 +53,7 @@ class EventRepository(EventStore):
     async def get_timeline_between(self, start_id: int, end_time: datetime) -> list[CompactEvent]:
         rows = await self.conn.execute_fetchall(
             """
-            SELECT id, entity_id, timestamp, state FROM events
+            SELECT id, entity_id, timestamp, state, unit FROM events
             WHERE id > ? AND timestamp < ?
             ORDER BY id
             """,
@@ -63,6 +65,7 @@ class EventRepository(EventStore):
                 entity_id=row[1],
                 timestamp=int(datetime.fromisoformat(row[2]).timestamp() * 1000),
                 state=row[3],
+                unit=row[4],
             )
             for row in rows
         ]
