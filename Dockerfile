@@ -11,14 +11,18 @@ WORKDIR /app
 
 RUN pip install uv
 
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 COPY floorcast/ ./floorcast/
+COPY migrations/ ./migrations/
+COPY alembic.ini ./
 COPY main.py ./
 
 RUN uv sync --no-dev
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 EXPOSE 8000
 
-CMD ["uv", "run", "python", "main.py"]
+CMD ["python", "main.py"]

@@ -17,4 +17,12 @@ jobs:
 
       - name: Deploy
         run: |
-          tailscale ssh root@floorcast.raccoon-pain.ts.net "cd /root/floorcast && git pull && docker compose up -d --build"
+          tailscale ssh root@floorcast.raccoon-pain.ts.net "
+            cd /root/floorcast &&
+            git fetch &&
+            git checkout main &&
+            git pull &&
+            docker compose build &&
+            docker compose run --rm floorcast alembic upgrade head &&
+            docker compose up -d
+          "

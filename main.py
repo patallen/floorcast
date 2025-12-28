@@ -14,7 +14,7 @@ from floorcast.domain.models import Registry
 from floorcast.domain.snapshot_policies import ElapsedTimePolicy
 from floorcast.infrastructure.backoff import Backoff
 from floorcast.infrastructure.config import Config
-from floorcast.infrastructure.db import connect_db, init_db
+from floorcast.infrastructure.db import connect_db
 from floorcast.infrastructure.event_bus import TypedEventBus
 from floorcast.infrastructure.logging import configure_logging
 from floorcast.repositories.event import EventRepository
@@ -34,7 +34,6 @@ async def main() -> None:
 
     async with connect_db(config.db_uri) as db_conn:
         logger.info("connected to floorcast db", db_uri=config.db_uri)
-        await init_db(db_conn)
 
         event_repo = EventRepository(db_conn)
         snapshot_repo = SnapshotRepository(db_conn)
