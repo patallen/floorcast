@@ -13,10 +13,10 @@ from floorcast.api.dependencies import (
     get_state_service,
     get_websocket_service_ws,
 )
+from floorcast.domain.websocket import WSConnection, WSMessage
 
 if TYPE_CHECKING:
     from floorcast.domain.ports import StateReconstructor, WebsocketManager
-    from floorcast.domain.websocket import WSConnection, WSMessage
     from floorcast.repositories.event import EventRepository
 
 logger = structlog.get_logger(__name__)
