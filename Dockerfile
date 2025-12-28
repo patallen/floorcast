@@ -11,7 +11,7 @@ WORKDIR /app
 
 RUN pip install uv
 
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 COPY floorcast/ ./floorcast/
 COPY migrations/ ./migrations/
 COPY alembic.ini ./
