@@ -12,6 +12,7 @@ from floorcast.api.dependencies import (
     get_event_bus_ws,
     get_event_repo,
     get_state_service,
+    get_state_service_ws,
 )
 from floorcast.domain.events import EntityStateChanged, FCEvent
 from floorcast.domain.models import Registry
@@ -29,9 +30,11 @@ class WSEventStreamer:
     def __init__(
         self,
         event_bus: EventPublisher[FCEvent],
+        state_service: StateReconstructor,
         ws: WebSocket,
         outbound_queue: asyncio.Queue[dict[str, Any]],
     ) -> None:
+        self._state_service = state_service
         self._ws = ws
         self._outbound_queue: asyncio.Queue[dict[str, Any]] = outbound_queue
         self._unsubscribe_fn: Callable[[], None] | None = None
@@ -41,7 +44,7 @@ class WSEventStreamer:
         try:
             async for message in self._ws.iter_json():
                 if message.get("type") == "subscribe.live":
-                    self._subscribe_live()
+                    await self._subscribe_live()
                 elif message.get("type") == "unsubscribe.live":
                     self._unsubscribe_live()
                 elif message.get("type") == "ping":
@@ -58,7 +61,10 @@ class WSEventStreamer:
             {"type": "event", "entity_id": event.entity_id, "state": event.state}
         )
 
-    def _subscribe_live(self) -> None:
+    async def _subscribe_live(self) -> None:
+        state = await self._state_service.get_state_at(datetime.now())
+        self._outbound_queue.put_nowait({"type": "snapshot", "state": state.state})
+
         self._unsubscribe_fn = self._event_bus.subscribe(
             EntityStateChanged, self._live_event_handler
         )
@@ -78,6 +84,7 @@ async def sender(outbound_queue: asyncio.Queue[dict[str, Any]], websocket: WebSo
 @ws_router.websocket("/events/live")
 async def events_live(
     websocket: WebSocket,
+    state_service: StateReconstructor = Depends(get_state_service_ws),
     event_bus: EventPublisher[FCEvent] = Depends(get_event_bus_ws),
 ) -> None:
     await websocket.accept()
@@ -85,13 +92,14 @@ async def events_live(
     logger.info("subscriber connected", queue_id=id(outbound_queue))
     await send_registry(outbound_queue, websocket.app.state.registry)
 
-    streamer = WSEventStreamer(event_bus, websocket, outbound_queue)
+    streamer = WSEventStreamer(
+        event_bus=event_bus,
+        ws=websocket,
+        outbound_queue=outbound_queue,
+        state_service=state_service,
+    )
     try:
-        await asyncio.gather(
-            streamer.run(),
-            sender(outbound_queue, websocket),
-        )
-
+        await asyncio.gather(streamer.run(), sender(outbound_queue, websocket))
     except WebSocketDisconnect:
         pass
     finally:
