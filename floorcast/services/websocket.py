@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime, timezone
 
 from floorcast.domain.events import EntityStateChanged, FCEvent
 from floorcast.domain.ports import EventPublisher, RegistryStore, StateReconstructor
@@ -78,8 +79,6 @@ class WebsocketService:
         conn.queue.put_nowait(WSMessage(type="registry", data=registry.to_dict()))
 
     async def request_snapshot(self, conn: WSConnection) -> None:
-        from datetime import datetime, timezone
-
         state = await self._state_service.get_state_at(datetime.now(tz=timezone.utc))
         conn.queue.put_nowait(
             WSMessage(
