@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from fastapi import Request, WebSocket
 
 if TYPE_CHECKING:
+    from floorcast.domain.events import FCEvent
     from floorcast.domain.ports import EventPublisher, EventStore, StateReconstructor
 
 
@@ -21,5 +22,5 @@ def get_state_service_ws(websocket: WebSocket) -> StateReconstructor:
 
 
 # WebSocket versions for backward compatibility
-def get_event_bus_ws(websocket: WebSocket) -> "EventPublisher":
+def get_event_bus_ws(websocket: WebSocket) -> "EventPublisher[FCEvent]":
     return websocket.app.state.event_bus  # type: ignore

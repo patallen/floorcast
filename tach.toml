@@ -18,7 +18,7 @@ depends_on = []
 
 [[modules]]
 path = "floorcast.infrastructure"
-depends_on = []
+depends_on = ["floorcast.common"]
 
 [[modules]]
 path = "floorcast.adapters"
@@ -34,7 +34,7 @@ depends_on = ["floorcast.domain"]
 
 [[modules]]
 path = "floorcast.api"
-depends_on = ["floorcast.domain", "floorcast.services", "floorcast.common"]
+depends_on = ["floorcast.domain"]
 
 [[modules]]
 path = "floorcast.server"

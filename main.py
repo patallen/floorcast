@@ -9,17 +9,19 @@ from floorcast.adapters.home_assistant import connect_home_assistant
 from floorcast.api.app_state import AppState
 from floorcast.api.factories import create_app
 from floorcast.domain.event_filtering import EntityBlockList
-from floorcast.domain.models import Event, Registry
+from floorcast.domain.events import EntityStateChanged, FCEvent
+from floorcast.domain.models import Registry
 from floorcast.domain.snapshot_policies import ElapsedTimePolicy
 from floorcast.infrastructure.backoff import Backoff
 from floorcast.infrastructure.config import Config
 from floorcast.infrastructure.db import connect_db, init_db
-from floorcast.infrastructure.event_bus import EventBus
+from floorcast.infrastructure.event_bus import TypedEventBus
 from floorcast.infrastructure.logging import configure_logging
 from floorcast.repositories.event import EventRepository
 from floorcast.repositories.snapshot import SnapshotRepository
 from floorcast.server import run_websocket_server
 from floorcast.services.ingestion import IngestionService
+from floorcast.services.snapshot_manager import SnapshotManager
 from floorcast.services.state import StateService
 
 config = Config()  # type: ignore[call-arg]
@@ -28,7 +30,7 @@ logger = structlog.get_logger(__name__)
 
 
 async def main() -> None:
-    event_bus = EventBus[Event]()
+    event_bus = TypedEventBus[FCEvent]()
 
     async with connect_db(config.db_uri) as db_conn:
         logger.info("connected to floorcast db", db_uri=config.db_uri)
@@ -51,11 +53,15 @@ async def main() -> None:
         ingest_service = IngestionService(
             event_bus=event_bus,
             event_repo=event_repo,
+            entity_blocklist=blocklist,
+        )
+        snapshot_manager = SnapshotManager(
             snapshot_repo=snapshot_repo,
             state_service=state_service,
-            entity_blocklist=blocklist,
             snapshot_policy=snapshot_policy,
         )
+        await snapshot_manager.initialize()
+
         websocket_url = config.ha_websocket_url
         websocket_token = config.ha_websocket_token
 
@@ -70,6 +76,8 @@ async def main() -> None:
                 except (ConnectionClosed, ConnectionRefusedError, OSError):
                     logger.warning("connection to home assistant lost", retry_in=backoff)
                     await asyncio.sleep(backoff.wait_seconds())
+
+        event_bus.subscribe(EntityStateChanged, snapshot_manager.on_entity_state_changed)
 
         server_fn = run_websocket_server(app)
         await asyncio.gather(ingestion_loop(), server_fn)

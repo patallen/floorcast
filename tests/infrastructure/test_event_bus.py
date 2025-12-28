@@ -1,6 +1,11 @@
 import asyncio
+from dataclasses import dataclass
+from typing import Protocol
+from unittest import mock
 
-from floorcast.infrastructure.event_bus import EventBus
+import pytest
+
+from floorcast.infrastructure.event_bus import EventBus, TypedEventBus
 
 
 def test_subscribe_adds_queue():
@@ -86,3 +91,41 @@ def test_multiple_events_queued_in_order():
     assert queue.get_nowait() == "first"
     assert queue.get_nowait() == "second"
     assert queue.get_nowait() == "third"
+
+
+class TestEvent(Protocol): ...
+
+
+@dataclass(kw_only=True, frozen=True)
+class TestEventSub(TestEvent):
+    name: str
+
+
+@pytest.fixture
+def event_bus():
+    return TypedEventBus[TestEvent]()
+
+
+@pytest.mark.asyncio
+async def test_typed_bus_subscribe(event_bus: TypedEventBus[TestEvent]):
+    mocked_callback = mock.AsyncMock()
+    _ = event_bus.subscribe(TestEventSub, mocked_callback)
+
+    event = TestEventSub(name="test")
+    event_bus.publish(event)
+
+    await event_bus.wait_all()
+
+    mocked_callback.assert_called_once_with(event)
+
+
+@pytest.mark.asyncio
+async def test_typed_bus_unsubscribe(event_bus: TypedEventBus[TestEvent]):
+    mocked_callback = mock.AsyncMock()
+    unsubscribe = event_bus.subscribe(TestEventSub, mocked_callback)
+
+    unsubscribe()
+    event = TestEventSub(name="test")
+    event_bus.publish(event)
+    await event_bus.wait_all()
+    mocked_callback.assert_not_called()
