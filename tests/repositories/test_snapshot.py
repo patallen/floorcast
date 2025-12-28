@@ -4,20 +4,8 @@ from datetime import datetime, timezone
 import pytest
 
 from floorcast.domain.models import Event, Snapshot
-from floorcast.infrastructure.db import init_db
 from floorcast.repositories.event import EventRepository
 from floorcast.repositories.snapshot import SnapshotRepository
-
-
-@pytest.fixture
-async def conn():
-    import aiosqlite
-
-    conn = await aiosqlite.connect(":memory:")
-    conn.row_factory = aiosqlite.Row
-    await init_db(conn)
-    yield conn
-    await conn.close()
 
 
 @pytest.fixture
