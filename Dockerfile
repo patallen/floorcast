@@ -19,8 +19,10 @@ COPY main.py ./
 
 RUN uv sync --no-dev
 
+ENV PATH="/app/.venv/bin:$PATH"
+
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 EXPOSE 8000
 
-CMD ["uv", "run", "python", "main.py"]
+CMD ["python", "main.py"]
