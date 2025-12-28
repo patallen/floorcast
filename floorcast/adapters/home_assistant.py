@@ -161,6 +161,7 @@ def _map_to_domain_event(ha_event: HAEvent) -> Event:
         event_type=ha_event.event_type,
         timestamp=ha_event.time_fired,
         data=new_state,
+        unit=new_state.get("attributes", {}).get("unit_of_measurement"),
     )
 
 

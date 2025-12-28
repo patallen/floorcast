@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFloorcast } from "./hooks/useFloorcast";
-import type { Entity, TimelineEvent } from "./types";
+import type { Entity, EntityStateValue, TimelineEvent } from "./types";
 import "./App.css";
 
 function App() {
   const { registry, entityStates, connected, timelineEvents, fetchTimeline } = useFloorcast();
   const [changedEntities, setChangedEntities] = useState<Set<string>>(new Set());
-  const prevStatesRef = useRef<Record<string, string | null>>({});
+  const prevStatesRef = useRef<Record<string, EntityStateValue>>({});
   const [playhead, setPlayhead] = useState<number | null>(null); // null = live
   const [debouncedPlayhead, setDebouncedPlayhead] = useState<number | null>(null);
   const [hoveredEntity, setHoveredEntity] = useState<string | null>(null);
@@ -63,7 +63,7 @@ function App() {
     };
 
     // Cache computed states to avoid repeated lookups
-    const cache: Record<string, string | null> = {};
+    const cache: Record<string, EntityStateValue> = {};
 
     // Return a proxy that lazily computes state on access
     return new Proxy(entityStates, {
@@ -72,7 +72,9 @@ function App() {
         const events = eventsByEntity[prop];
         if (!events) return target[prop];
         const lastEvent = findLastBefore(events, debouncedPlayhead);
-        const state = lastEvent?.state ?? target[prop];
+        const state = lastEvent
+          ? { value: lastEvent.state, unit: lastEvent.unit }
+          : target[prop];
         cache[prop] = state;
         return state;
       },
@@ -91,7 +93,7 @@ function App() {
     const newlyChanged: string[] = [];
 
     for (const [entityId, state] of Object.entries(entityStates)) {
-      if (prevStates[entityId] !== undefined && prevStates[entityId] !== state) {
+      if (prevStates[entityId] !== undefined && prevStates[entityId].value !== state.value) {
         newlyChanged.push(entityId);
       }
     }
@@ -563,13 +565,14 @@ function Timeline({
   );
 }
 
-function formatState(state: string | null | undefined): string {
-  if (state == null) return "unknown";
-  const num = parseFloat(state);
+function formatState(state: EntityStateValue | undefined): string {
+  if (state == null || state.value == null) return "unknown";
+  const num = parseFloat(state.value);
   if (!isNaN(num)) {
-    return num.toFixed(3).replace(/\.?0+$/, "");
+    const formatted = num.toFixed(3).replace(/\.?0+$/, "");
+    return state.unit ? `${formatted} ${state.unit}` : formatted;
   }
-  return state;
+  return state.value;
 }
 
 const EntityCard = React.memo(function EntityCard({
@@ -582,7 +585,7 @@ const EntityCard = React.memo(function EntityCard({
   onSelect,
 }: {
   entity: Entity;
-  state: string | null | undefined;
+  state: EntityStateValue | undefined;
   deviceName?: string;
   areaName?: string;
   changed?: boolean;
@@ -591,7 +594,7 @@ const EntityCard = React.memo(function EntityCard({
 }) {
   return (
     <div
-      className={`entity-card ${state === "on" ? "on" : ""} ${changed ? "changed" : ""}`}
+      className={`entity-card ${state?.value === "on" ? "on" : ""} ${changed ? "changed" : ""}`}
       onMouseEnter={() => onHover?.(entity.id)}
       onMouseLeave={() => onHover?.(null)}
       onClick={() => onSelect?.(entity.id)}

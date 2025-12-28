@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable
 
 import structlog
@@ -58,11 +58,18 @@ class WSEventStreamer:
 
     async def _live_event_handler(self, event: EntityStateChanged) -> None:
         self._outbound_queue.put_nowait(
-            {"type": "event", "entity_id": event.entity_id, "state": event.state}
+            {
+                "type": "event",
+                "entity_id": event.entity_id,
+                "state": event.state,
+                "unit": event.event.unit,
+                "timestamp": int(event.event.timestamp.timestamp() * 1000),
+                "id": event.event.id,
+            }
         )
 
     async def _subscribe_live(self) -> None:
-        state = await self._state_service.get_state_at(datetime.now())
+        state = await self._state_service.get_state_at(datetime.now(tz=timezone.utc))
         self._outbound_queue.put_nowait({"type": "snapshot", "state": state.state})
 
         self._unsubscribe_fn = self._event_bus.subscribe(
@@ -117,7 +124,7 @@ async def events(
 
     snapshot = await state_service.get_state_at(start_time)
     timeline_events = await events_repo.get_timeline_between(
-        snapshot.last_event_id or 0, end_time or datetime.now()
+        snapshot.last_event_id or 0, end_time or datetime.now(tz=timezone.utc)
     )
     return {"snapshot": asdict(snapshot), "events": [asdict(event) for event in timeline_events]}
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import TYPE_CHECKING
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -28,16 +28,19 @@ class SnapshotManager:
         # Members related to tracking snapshot state
         self._last_snapshot_time: datetime | None = None
         self._last_snapshot_event_id: int | None = None
-        self._state_cache: dict[str, str | None] = {}
+        self._state_cache: dict[str, Any] = {}
 
     async def initialize(self) -> None:
-        current_state = await self._state_service.get_state_at(datetime.now())
+        current_state = await self._state_service.get_state_at(datetime.now(tz=timezone.utc))
         self._last_snapshot_time = current_state.snapshot_time
         self._last_snapshot_event_id = current_state.last_event_id or 0
         self._state_cache = current_state.state
 
     async def on_entity_state_changed(self, event: EntityStateChanged) -> None:
-        self._state_cache[event.event.entity_id] = event.state
+        self._state_cache[event.event.entity_id] = {
+            "value": event.state,
+            "unit": event.event.unit,
+        }
         last_event_id = event.event.id
         last_snapshot_time = self._last_snapshot_time
         last_snapshot_event_id = self._last_snapshot_event_id or 0
@@ -46,6 +49,7 @@ class SnapshotManager:
         if not last_snapshot_time or self._snapshot_policy.should_snapshot(
             events_since_snapshot, last_snapshot_time
         ):
+            self._last_snapshot_time = datetime.now(tz=timezone.utc)
             snapshot = await self._take_snapshot(event)
             logger.info(
                 "snapshot taken",

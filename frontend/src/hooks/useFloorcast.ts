@@ -42,13 +42,15 @@ export function useFloorcast() {
         case "event":
           setEntityStates((prev) => ({
             ...prev,
-            [message.entity_id]: message.state,
+            [message.entity_id]: { value: message.state, unit: message.unit },
           }));
           setTimelineEvents((prev) => {
             const newEvent: TimelineEvent = {
               entity_id: message.entity_id,
               state: message.state,
-              timestamp: Date.now(),
+              unit: message.unit,
+              timestamp: message.timestamp,
+              id: message.id,
             };
             const updated = [...prev, newEvent];
             return updated.slice(-MAX_TIMELINE_EVENTS);
@@ -90,10 +92,12 @@ export function useFloorcast() {
       const data = await response.json();
 
       // Convert backend events to TimelineEvent format
-      const historicalEvents: TimelineEvent[] = data.events.map((e: { entity_id: string; state: string | null; timestamp: string }) => ({
+      const historicalEvents: TimelineEvent[] = data.events.map((e: { id: number; entity_id: string; state: string | null; unit: string | null; timestamp: number }) => ({
+        id: e.id,
         entity_id: e.entity_id,
         state: e.state,
-        timestamp: new Date(e.timestamp).getTime(),
+        unit: e.unit,
+        timestamp: e.timestamp,
       }));
 
       setTimelineEvents((prev) => {
