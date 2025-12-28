@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { EntityState, Registry, TimelineEvent, WSMessage } from "../types";
 
 const WS_PROTOCOL = window.location.protocol === "https:" ? "wss:" : "ws:";
-const WS_URL = `${WS_PROTOCOL}//${window.location.host}/events/live`;
+const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws`;
 const API_URL = `${window.location.protocol}//${window.location.host}`;
 const MAX_TIMELINE_EVENTS = 20000;
 
@@ -34,7 +34,7 @@ export function useFloorcast() {
         case "registry":
           setRegistry(message.registry);
           // Auto-subscribe to live after getting registry
-          ws.send(JSON.stringify({ type: "subscribe.live" }));
+          ws.send(JSON.stringify({ type: "subscribe", data: "entity_states"}));
           break;
         case "snapshot":
           setEntityStates(message.state);

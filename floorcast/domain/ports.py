@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Protocol
 
+from floorcast.domain.websocket import WSConnection, WSMessage
+
 if TYPE_CHECKING:
-    from floorcast.domain.models import CompactEvent, ConstructedState, Event, Snapshot
+    from floorcast.domain.models import CompactEvent, ConstructedState, Event, Registry, Snapshot
 
 
 class SnapshotStore(Protocol):
@@ -39,3 +41,15 @@ class StateReconstructor(Protocol):
 
 class SnapshotPolicy(Protocol):
     def should_snapshot(self, events_since_snapshot: int, last_snapshot_time: datetime) -> bool: ...
+
+
+class RegistryStore(Protocol):
+    def get_registry(self) -> Registry: ...
+
+
+class WebsocketManager(Protocol):
+    def send_message(self, conn: WSConnection, message: WSMessage) -> None: ...
+    def connect(self) -> WSConnection: ...
+    def disconnect(self, conn: WSConnection) -> None: ...
+    async def request_registry(self, conn: WSConnection) -> None: ...
+    async def request_snapshot(self, conn: WSConnection) -> None: ...
