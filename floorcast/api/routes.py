@@ -2,115 +2,26 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import APIRouter, Depends
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from floorcast.api.dependencies import (
-    get_event_bus_ws,
     get_event_repo,
     get_state_service,
-    get_state_service_ws,
+    get_websocket_service_ws,
 )
-from floorcast.domain.events import EntityStateChanged, FCEvent
-from floorcast.domain.models import Registry
 
 if TYPE_CHECKING:
-    from floorcast.domain.ports import EventPublisher, StateReconstructor
+    from floorcast.domain.ports import StateReconstructor, WebsocketManager
+    from floorcast.domain.websocket import WSConnection, WSMessage
     from floorcast.repositories.event import EventRepository
 
 logger = structlog.get_logger(__name__)
 
 ws_router = APIRouter()
-
-
-class WSEventStreamer:
-    def __init__(
-        self,
-        event_bus: EventPublisher[FCEvent],
-        state_service: StateReconstructor,
-        ws: WebSocket,
-        outbound_queue: asyncio.Queue[dict[str, Any]],
-    ) -> None:
-        self._state_service = state_service
-        self._ws = ws
-        self._outbound_queue: asyncio.Queue[dict[str, Any]] = outbound_queue
-        self._unsubscribe_fn: Callable[[], None] | None = None
-        self._event_bus = event_bus
-
-    async def run(self) -> None:
-        try:
-            async for message in self._ws.iter_json():
-                if message.get("type") == "subscribe.live":
-                    await self._subscribe_live()
-                elif message.get("type") == "unsubscribe.live":
-                    self._unsubscribe_live()
-                elif message.get("type") == "ping":
-                    self._outbound_queue.put_nowait({"type": "pong"})
-                else:
-                    self._outbound_queue.put_nowait(
-                        {"type": "error", "message": "Unknown message type"}
-                    )
-        finally:
-            self._unsubscribe_live()
-
-    async def _live_event_handler(self, event: EntityStateChanged) -> None:
-        self._outbound_queue.put_nowait(
-            {
-                "type": "event",
-                "entity_id": event.entity_id,
-                "state": event.state,
-                "unit": event.event.unit,
-                "timestamp": int(event.event.timestamp.timestamp() * 1000),
-                "id": event.event.id,
-            }
-        )
-
-    async def _subscribe_live(self) -> None:
-        state = await self._state_service.get_state_at(datetime.now(tz=timezone.utc))
-        self._outbound_queue.put_nowait({"type": "snapshot", "state": state.state})
-
-        self._unsubscribe_fn = self._event_bus.subscribe(
-            EntityStateChanged, self._live_event_handler
-        )
-
-    def _unsubscribe_live(self) -> None:
-        if self._unsubscribe_fn is not None:
-            self._unsubscribe_fn()
-
-
-async def sender(outbound_queue: asyncio.Queue[dict[str, Any]], websocket: WebSocket) -> None:
-    while True:
-        message = await outbound_queue.get()
-        logger.debug("sending message", type=message.get("type"))
-        await websocket.send_json(message)
-
-
-@ws_router.websocket("/events/live")
-async def events_live(
-    websocket: WebSocket,
-    state_service: StateReconstructor = Depends(get_state_service_ws),
-    event_bus: EventPublisher[FCEvent] = Depends(get_event_bus_ws),
-) -> None:
-    await websocket.accept()
-    outbound_queue = asyncio.Queue[dict[str, Any]]()
-    logger.info("subscriber connected", queue_id=id(outbound_queue))
-    await send_registry(outbound_queue, websocket.app.state.registry)
-
-    streamer = WSEventStreamer(
-        event_bus=event_bus,
-        ws=websocket,
-        outbound_queue=outbound_queue,
-        state_service=state_service,
-    )
-    try:
-        await asyncio.gather(streamer.run(), sender(outbound_queue, websocket))
-    except WebSocketDisconnect:
-        pass
-    finally:
-        logger.info("subscriber disconnected", queue_id=id(outbound_queue))
 
 
 @ws_router.get("/timeline")
@@ -129,5 +40,53 @@ async def events(
     return {"snapshot": asdict(snapshot), "events": [asdict(event) for event in timeline_events]}
 
 
-async def send_registry(outbound_queue: asyncio.Queue[dict[str, Any]], registry: Registry) -> None:
-    await outbound_queue.put({"type": "registry", "registry": registry.to_dict()})
+def serialize(message: WSMessage) -> dict[str, Any]:
+    if message.type == "registry":
+        return {"type": message.type, "registry": message.data}
+    if message.type == "snapshot":
+        return {"type": message.type, "state": message.data}
+    if message.type == "entity.state_change":
+        assert isinstance(message.data, dict)
+        data = message.data
+        return {
+            "type": "event",
+            "entity_id": data["entity_id"],
+            "state": data["state"],
+            "unit": data["unit"],
+            "timestamp": data["timestamp"],
+            "id": data["id"],
+        }
+    raise ValueError(f"Unknown message type: {message.type}")
+
+
+async def sender(conn: WSConnection, ws: WebSocket) -> None:
+    while True:
+        message = await conn.queue.get()
+        serialized = serialize(message)
+        await ws.send_json(serialized)
+
+
+async def receiver(conn: WSConnection, ws: WebSocket, service: WebsocketManager) -> None:
+    async for message in ws.iter_json():
+        service.send_message(conn, WSMessage(type=message["type"], data=message.get("data")))
+
+
+@ws_router.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    websocket_service: WebsocketManager = Depends(get_websocket_service_ws),
+) -> None:
+    await websocket.accept()
+    ws_conn = websocket_service.connect()
+    logger.info("subscriber connected", connection=str(ws_conn.id))
+    await websocket_service.request_registry(ws_conn)
+    await websocket_service.request_snapshot(ws_conn)
+    try:
+        await asyncio.gather(
+            sender(ws_conn, websocket), receiver(ws_conn, websocket, websocket_service)
+        )
+    except WebSocketDisconnect:
+        pass
+    finally:
+        websocket_service.disconnect(ws_conn)
+        logger.info("subscriber disconnected", connection=str(ws_conn.id))
