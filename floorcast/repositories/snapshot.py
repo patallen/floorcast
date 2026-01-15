@@ -40,8 +40,8 @@ class SnapshotRepository(SnapshotStore):
         cursor = await self.conn.execute(
             """
             SELECT * FROM snapshots
-            WHERE datetime(created_at) < datetime(?)
-            ORDER BY id DESC LIMIT 1
+            WHERE created_at < datetime(?)
+            ORDER BY created_at DESC LIMIT 1
             """,
             (timestamp.isoformat(),),
         )

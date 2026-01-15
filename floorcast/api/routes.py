@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -32,11 +33,20 @@ async def events(
     state_service: StateService = Depends(get_state_service),
     events_repo: EventStore = Depends(get_event_repo),
 ) -> dict[str, Any]:
-    from dataclasses import asdict
+    import time
 
+    start = time.time()
     snapshot = await state_service.get_state_at(start_time)
+    after_snapshot_time = time.time()
     timeline_events = await events_repo.get_timeline_between(
         snapshot.last_event_id or 0, end_time or datetime.now(tz=timezone.utc)
+    )
+    after_timeline_time = time.time()
+    logger.info(
+        "timings",
+        total=after_timeline_time - start,
+        snapshot=after_snapshot_time - start,
+        timeline=after_timeline_time - after_snapshot_time,
     )
     return {"snapshot": asdict(snapshot), "events": [asdict(event) for event in timeline_events]}
 
