@@ -55,7 +55,7 @@ class EventRepository(EventStore):
             """
             SELECT id, entity_id, timestamp, state, unit FROM events
             WHERE id > ? AND timestamp < ?
-            ORDER BY id
+            ORDER BY timestamp, id
             """,
             (start_id, end_time.isoformat()),
         )
