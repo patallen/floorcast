@@ -55,17 +55,16 @@ async def test_get_by_id_not_found(repo):
 
 @pytest.mark.asyncio
 async def test_get_between_id_and_timestamp(repo):
-    now = datetime.now(timezone.utc)
-    event1 = make_event(timestamp=now)
-    event2 = make_event(timestamp=now)
-    event3 = make_event(timestamp=now)
+    event1 = make_event(timestamp=datetime.now(timezone.utc))
+    event2 = make_event(timestamp=datetime.now(timezone.utc))
+    event3 = make_event(timestamp=datetime.now(timezone.utc))
 
     await repo.create(event1)
     created2 = await repo.create(event2)
     await repo.create(event3)
 
     future = datetime(2099, 1, 1, tzinfo=timezone.utc)
-    results = await repo.get_between_id_and_timestamp(created2.id, future)
+    results = await repo.get_between_id_and_timestamp(created2.timestamp, future)
 
     assert len(results) == 1
     assert results[0].id == event3.id

@@ -35,7 +35,7 @@ async def events(
 ) -> dict[str, Any]:
     snapshot = await state_service.get_state_at(start_time)
     timeline_events = await events_repo.get_timeline_between(
-        snapshot.last_event_id or 0, end_time or datetime.now(tz=timezone.utc)
+        start_time, end_time or datetime.now(tz=timezone.utc)
     )
     return {"snapshot": asdict(snapshot), "events": [asdict(event) for event in timeline_events]}
 
@@ -84,10 +84,10 @@ async def websocket_endpoint(
     await websocket_service.request_registry(ws_conn)
     await websocket_service.request_snapshot(ws_conn)
     try:
-        await asyncio.gather(
-            sender(ws_conn, websocket), receiver(ws_conn, websocket, websocket_service)
-        )
-    except WebSocketDisconnect:
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(sender(ws_conn, websocket))
+            tg.create_task(receiver(ws_conn, websocket, websocket_service))
+    except* WebSocketDisconnect:
         pass
     finally:
         websocket_service.disconnect(ws_conn)

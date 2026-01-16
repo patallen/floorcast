@@ -27,7 +27,8 @@ class StateService:
         snapshot_time = time.time()
         logger.debug("StateService loaded snapshot", snapshot_id=snapshot.id if snapshot else None)
         last_event_id = snapshot.last_event_id if snapshot else 0
-        events = await self._event_repo.get_between_id_and_timestamp(last_event_id, end_time)
+        snapshot_created_at = (snapshot.created_at if snapshot else None) or datetime(1990, 2, 25)
+        events = await self._event_repo.get_between_id_and_timestamp(snapshot_created_at, end_time)
         events_time = time.time()
         logger.debug("StateService loaded events", events_count=len(events))
         reconstructed_state = self._reconstruct_state(snapshot, events)

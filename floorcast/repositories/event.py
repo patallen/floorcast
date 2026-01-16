@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import structlog
 from aiosqlite import Connection
@@ -50,20 +50,24 @@ class EventRepository(EventStore):
         await self.conn.commit()
         return event
 
-    async def get_timeline_between(self, start_id: int, end_time: datetime) -> list[CompactEvent]:
+    async def get_timeline_between(
+        self, start_time: datetime, end_time: datetime
+    ) -> list[CompactEvent]:
         rows = await self.conn.execute_fetchall(
             """
             SELECT id, entity_id, timestamp, state, unit FROM events
-            WHERE id > ? AND timestamp < ?
+            WHERE timestamp > ? AND timestamp < ?
             ORDER BY timestamp, id
             """,
-            (start_id, end_time),
+            (start_time, end_time),
         )
         events = [
             CompactEvent(
                 id=row[0],
                 entity_id=row[1],
-                timestamp=int(datetime.fromisoformat(row[2]).timestamp() * 1000),
+                timestamp=int(
+                    datetime.fromisoformat(row[2]).replace(tzinfo=timezone.utc).timestamp() * 1000
+                ),
                 state=row[3],
                 unit=row[4],
             )
@@ -71,8 +75,8 @@ class EventRepository(EventStore):
         ]
         logger.debug(
             "fetched events for timeline",
-            after_id=start_id,
-            before_timestamp=end_time.isoformat(),
+            lower_bound=start_time.isoformat(),
+            upper_bound=end_time.isoformat(),
             count=len(events),
         )
         return events
@@ -84,13 +88,18 @@ class EventRepository(EventStore):
             return None
         return Event.from_dict(dict(row))
 
-    async def get_between_id_and_timestamp(self, id: int, timestamp: datetime) -> list[Event]:
+    async def get_between_id_and_timestamp(
+        self, start_time: datetime, end_time: datetime
+    ) -> list[Event]:
         rows = await self.conn.execute_fetchall(
-            "SELECT * FROM events WHERE id > ? AND timestamp < ?",
-            (id, timestamp),
+            "SELECT * FROM events WHERE timestamp > ? AND timestamp < ?",
+            (start_time, end_time),
         )
         events = [Event.from_dict(dict(row)) for row in rows]
         logger.debug(
-            "fetched events", after_id=id, before_timestamp=timestamp.isoformat(), count=len(events)
+            "fetched events",
+            lower_bound=start_time.isoformat(),
+            upper_bound=end_time.isoformat(),
+            count=len(events),
         )
         return events
