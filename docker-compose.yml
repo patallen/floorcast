@@ -1,6 +1,7 @@
 services:
   floorcast:
     build: .
+    env_file: .env
     ports:
       - "80:8000"
     environment:
