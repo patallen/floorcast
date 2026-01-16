@@ -34,9 +34,9 @@ class StateService:
         reconstruct_state_time = time.time()
         logger.info(
             "get_state_at timings",
-            total=reconstruct_state_time - events_time,
-            snapshot=snapshot_time - start,
-            timeline=events_time - snapshot_time,
+            reconstruction=reconstruct_state_time - events_time,
+            snapshot_query=snapshot_time - start,
+            events_query=events_time - snapshot_time,
         )
         logger.debug(
             "StateService reconstructed state",
