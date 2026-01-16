@@ -20,12 +20,24 @@ class StateService:
         self._event_repo = event_repo
 
     async def get_state_at(self, end_time: datetime) -> ConstructedState:
+        import time
+
+        start = time.time()
         snapshot = await self._snapshot_repo.get_before_timestamp(end_time)
+        snapshot_time = time.time()
         logger.debug("StateService loaded snapshot", snapshot_id=snapshot.id if snapshot else None)
         last_event_id = snapshot.last_event_id if snapshot else 0
         events = await self._event_repo.get_between_id_and_timestamp(last_event_id, end_time)
+        events_time = time.time()
         logger.debug("StateService loaded events", events_count=len(events))
         reconstructed_state = self._reconstruct_state(snapshot, events)
+        reconstruct_state_time = time.time()
+        logger.info(
+            "get_state_at timings",
+            total=reconstruct_state_time - events_time,
+            snapshot=snapshot_time - start,
+            timeline=events_time - snapshot_time,
+        )
         logger.debug(
             "StateService reconstructed state",
             end_time=end_time.isoformat(),
