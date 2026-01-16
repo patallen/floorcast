@@ -1,7 +1,16 @@
+import sqlite3
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import AsyncGenerator
 
 import aiosqlite
+
+
+def adapt_datetime(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%d %H:%M:%S.%f")
+
+
+sqlite3.register_adapter(datetime, adapt_datetime)
 
 
 @asynccontextmanager

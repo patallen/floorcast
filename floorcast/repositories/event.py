@@ -38,7 +38,7 @@ class EventRepository(EventStore):
                 event.external_id,
                 event.domain,
                 event.entity_id,
-                event.timestamp.isoformat(),
+                event.timestamp,
                 event.state,
                 json.dumps(event.data or {}),
                 json.dumps(event.metadata or {}),
@@ -57,7 +57,7 @@ class EventRepository(EventStore):
             WHERE id > ? AND timestamp < ?
             ORDER BY timestamp, id
             """,
-            (start_id, end_time.isoformat()),
+            (start_id, end_time),
         )
         events = [
             CompactEvent(
@@ -87,7 +87,7 @@ class EventRepository(EventStore):
     async def get_between_id_and_timestamp(self, id: int, timestamp: datetime) -> list[Event]:
         rows = await self.conn.execute_fetchall(
             "SELECT * FROM events WHERE id > ? AND timestamp < ?",
-            (id, timestamp.isoformat()),
+            (id, timestamp),
         )
         events = [Event.from_dict(dict(row)) for row in rows]
         logger.debug(

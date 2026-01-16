@@ -43,7 +43,7 @@ class SnapshotRepository(SnapshotStore):
             WHERE created_at < datetime(?)
             ORDER BY created_at DESC LIMIT 1
             """,
-            (timestamp.isoformat(),),
+            (timestamp,),
         )
         row = await cursor.fetchone()
         if not row:
